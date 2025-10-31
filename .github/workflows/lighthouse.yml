@@ -1,0 +1,28 @@
+name: Lighthouse CI
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  lhci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run Lighthouse on live site
+        uses: treosh/lighthouse-ci-action@v10
+        with:
+          urls: |
+            https://opach.online
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+          configPath: ""
+          runs: 1
