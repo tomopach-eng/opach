@@ -1,5 +1,8 @@
-http://opach.online/
-http://opach.online/Podstrona-1/index.html
-http://opach.online/Podstrona-2/index.html
-http://opach.online/Podstrona-3/index.html
-http://opach.online/Podstrona-4/index.html
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>http://opach.online/</loc></url>
+  <url><loc>http://opach.online/Podstrona-1/</loc></url>
+  <url><loc>http://opach.online/Podstrona-2/</loc></url>
+  <url><loc>http://opach.online/Podstrona-3/</loc></url>
+  <url><loc>http://opach.online/Podstrona-4/</loc></url>
+</urlset>
