@@ -31,7 +31,7 @@ jobs:
         uses: treosh/lighthouse-ci-action@v10
         with:
           urls: |
-            https://opach.online
+            https://1.opach.online
           uploadArtifacts: true
           temporaryPublicStorage: true
           configPath: ""
