@@ -1,14 +1,16 @@
-# Lighthouse CI workflow is currently disabled due to SSL certificate issues
-# with the opach.online domain. To re-enable:
-# 1. Fix the SSL certificate for opach.online (or 1.opach.online based on CNAME)
-# 2. Verify the site is accessible via HTTPS
-# 3. Uncomment the 'on:' triggers below
-# 4. Or update the URL to a working domain with valid SSL
+# Lighthouse CI workflow
+# Tests the live site at https://opach.online (redirects to https://1.opach.online)
+# 
+# To enable automatic runs on push:
+# 1. Follow the instructions in SSL_SETUP.md to enable HTTPS
+# 2. Verify the site is accessible via HTTPS (https://1.opach.online or https://opach.online)
+# 3. Uncomment the 'push:' trigger below
+# 4. The workflow will run on every push to main/master branch
 
 name: Lighthouse CI
 
 on:
-  # Disabled - uncomment when domain SSL is fixed
+  # Uncomment the lines below after SSL is enabled and working
   # push:
   #   branches: [ main, master ]
   workflow_dispatch:
