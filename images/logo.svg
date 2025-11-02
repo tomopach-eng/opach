@@ -1,0 +1,7 @@
+<svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <text x="10" y="28" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#2c3e50">
+    Opach
+  </text>
+  <circle cx="100" cy="20" r="15" stroke="#3498db" stroke-width="2" fill="none"/>
+  <path d="M 100 10 L 100 20 L 107 20" stroke="#3498db" stroke-width="2" stroke-linecap="round"/>
+</svg>
