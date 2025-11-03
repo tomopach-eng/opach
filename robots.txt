@@ -1,3 +1,3 @@
 User-agent: *
 Allow: /
-Sitemap: https://1.opach.online/sitemap.xml
+Sitemap: https://opach.online/sitemap.xml
