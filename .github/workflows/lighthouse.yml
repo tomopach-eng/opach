@@ -1,4 +1,4 @@
-cat > .github/workflows/test-upload.yml <<'EOF'name: Lighthouse CI
+name: Lighthouse CI
 
 on:
   # push:
@@ -119,7 +119,7 @@ jobs:
           echo "tar_path=$OUT_TAR" >> "$GITHUB_OUTPUT"
           ls -la "$OUT_TAR"
       
-      - name: Debug: show tar contents (if present)
+      - name: "Debug: show tar contents (if present)"
         if: ${{ steps.pack_reports.outputs.report_exists == 'true' }}
         run: |
           tar -tzf ${{ steps.pack_reports.outputs.tar_path }} | head -n 50 || true
@@ -134,4 +134,4 @@ jobs:
       - name: Show artifact name (for logs)
         if: ${{ steps.pack_reports.outputs.report_exists == 'true' && ((github.event_name != 'pull_request') || (github.event.pull_request.head.repo.full_name == github.repository)) }}
         run: |
-          echo "Uploaded artifact: lighthouse-reports-${GITHUB_RUN_ID}" EOF
+          echo "Uploaded artifact: lighthouse-reports-${GITHUB_RUN_ID}"
