@@ -56,14 +56,40 @@ jobs:
         with:
           node-version: 20
 
-      - name: Run Lighthouse on live site
+      - name: Run Lighthouse on live site (do not upload artifacts internally)
         uses: treosh/lighthouse-ci-action@v10
         with:
           urls: |
             https://opach.online
-          # Disable artifact upload for pull_requests from forks to avoid Unauthorized errors.
-          # For normal push/workflow_dispatch runs this evaluates to true.
-          uploadArtifacts: ${{ (github.event_name != 'pull_request') || (github.event.pull_request.head.repo.full_name == github.repository) }}
-          temporaryPublicStorage: true
+          uploadArtifacts: false            # <-- important: disable internal artifact creation
+          temporaryPublicStorage: false     # optional: avoid other upload mechanisms that may fail
           configPath: ""
           runs: 1
+
+      # Prepare artifact only if report dir exists (and only for trusted runs, not fork PRs)
+      - name: Check for lighthouse report
+        id: check_report
+        run: |
+          REPORT_DIR="./lighthouse-report"
+          if [ -d "$REPORT_DIR" ]; then
+            echo "report_exists=true" >> "$GITHUB_OUTPUT"
+            # create a tarball to make upload robust
+            TAR="/tmp/lh_report_${GITHUB_RUN_ID}.tar.gz"
+            tar -czf "$TAR" -C "$REPORT_DIR" .
+            echo "tar_path=$TAR" >> "$GITHUB_OUTPUT"
+          else
+            echo "report_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload Lighthouse results artifact
+        if: ${{ steps.check_report.outputs.report_exists == 'true' && ((github.event_name != 'pull_request') || (github.event.pull_request.head.repo.full_name == github.repository)) }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-results-${{ github.run_id }}
+          path: ${{ steps.check_report.outputs.tar_path }}
+
+      - name: (Optional) Show link to uploaded artifact
+        if: ${{ steps.check_report.outputs.report_exists == 'true' && ((github.event_name != 'pull_request') || (github.event.pull_request.head.repo.full_name == github.repository)) }}
+        run: |
+          echo "Uploaded artifact name: lighthouse-results-${GITHUB_RUN_ID}"
+          echo "If you need the raw report directory, download the artifact from the Actions run UI."
