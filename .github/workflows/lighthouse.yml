@@ -1,9 +1,9 @@
 # Lighthouse CI workflow
-# Tests the live site at https://opach.online (redirects to https://1.opach.online)
+# Tests the live site at https://opach.online
 # 
 # To enable automatic runs on push:
 # 1. Follow the instructions in SSL_SETUP.md to enable HTTPS
-# 2. Verify the site is accessible via HTTPS (https://1.opach.online or https://opach.online)
+# 2. Verify the site is accessible via HTTPS (https://opach.online)
 # 3. Uncomment the 'push:' trigger below
 # 4. The workflow will run on every push to main/master branch
 
@@ -31,7 +31,7 @@ jobs:
         uses: treosh/lighthouse-ci-action@v10
         with:
           urls: |
-            https://1.opach.online
+            https://opach.online
           uploadArtifacts: true
           temporaryPublicStorage: true
           configPath: ""
