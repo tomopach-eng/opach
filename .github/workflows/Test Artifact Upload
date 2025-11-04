@@ -1,0 +1,23 @@
+name: Test Artifact Upload
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  test-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create test file
+        run: |
+          echo "hello from $GITHUB_RUN_ID" > /tmp/test-artifact-${GITHUB_RUN_ID}.txt
+          ls -la /tmp/test-artifact-${GITHUB_RUN_ID}.txt
+
+      - name: Upload test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifact-${{ github.run_id }}
+          path: /tmp/test-artifact-${{ github.run_id }}.txt
