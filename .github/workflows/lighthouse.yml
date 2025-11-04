@@ -1,12 +1,3 @@
-# Lighthouse CI workflow
-# Tests the live site at https://opach.online
-# 
-# To enable automatic runs on push:
-# 1. Follow the instructions in SSL_SETUP.md to enable HTTPS
-# 2. Verify the site is accessible via HTTPS (https://opach.online)
-# 3. Uncomment the 'push:' trigger below
-# 4. The workflow will run on every push to main/master branch
-
 name: Lighthouse CI
 
 on:
@@ -15,12 +6,50 @@ on:
   #   branches: [ main, master ]
   workflow_dispatch:
 
+# Give the workflow permission to upload artifacts and perform Actions operations.
+permissions:
+  actions: write
+  contents: read
+
 jobs:
   lhci:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Wait for HTTPS and valid TLS
+        run: |
+          set -e
+          url="opach.online"
+          timeout=900
+          interval=10
+          elapsed=0
+
+          echo "Waiting up to $timeout s for HTTPS and valid certificate at https://$url..."
+
+          while [ $elapsed -lt $timeout ]; do
+            http_code=$(curl -s -o /dev/null -w "%{http_code}" -I https://$url || true)
+            cert_ok=$(echo | openssl s_client -servername $url -connect $url:443 2>/dev/null \
+                      | openssl x509 -noout -checkend 60 >/dev/null 2>&1 && echo "1" || echo "0")
+
+            if [ "$http_code" = "200" ] || [ "$http_code" = "301" ] || [ "$http_code" = "302" ]; then
+              if [ "$cert_ok" = "1" ]; then
+                echo "HTTPS + cert OK (http_code=$http_code)"
+                exit 0
+              fi
+            fi
+
+            echo "Not ready yet (http_code=$http_code, cert_ok=$cert_ok). Sleeping $interval s..."
+            sleep $interval
+            elapsed=$((elapsed + interval))
+          done
+
+          echo "Timed out waiting for HTTPS/certificate after $timeout seconds"
+          exit 1
 
       - name: Set up Node
         uses: actions/setup-node@v4
