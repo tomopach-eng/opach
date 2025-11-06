@@ -1,0 +1,73 @@
+name: Export Files (Backup)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  export-backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create backup archive
+        id: create_backup
+        run: |
+          set -e
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          ARCHIVE_NAME="opach-backup-${TIMESTAMP}.tar.gz"
+          ARCHIVE_PATH="/tmp/${ARCHIVE_NAME}"
+          
+          echo "Creating backup archive..."
+          
+          # Create archive with all tracked files
+          git archive --format=tar.gz --output="$ARCHIVE_PATH" HEAD
+          
+          # Show archive info
+          echo "Archive created successfully:"
+          ls -lh "$ARCHIVE_PATH"
+          echo ""
+          echo "Archive contents (first 20 files):"
+          tar -tzf "$ARCHIVE_PATH" | head -n 20
+          echo "..."
+          echo "Total files in archive: $(tar -tzf "$ARCHIVE_PATH" | wc -l)"
+          
+          echo "archive_path=$ARCHIVE_PATH" >> "$GITHUB_OUTPUT"
+          echo "archive_name=$ARCHIVE_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.create_backup.outputs.archive_name }}
+          path: ${{ steps.create_backup.outputs.archive_path }}
+          retention-days: 90
+
+      - name: Show download instructions
+        run: |
+          echo "============================================"
+          echo "BACKUP CREATED SUCCESSFULLY!"
+          echo "============================================"
+          echo ""
+          echo "Archive name: ${{ steps.create_backup.outputs.archive_name }}"
+          echo ""
+          echo "To download the backup:"
+          echo "1. Go to the 'Actions' tab in GitHub"
+          echo "2. Click on this workflow run"
+          echo "3. Scroll to the 'Artifacts' section at the bottom"
+          echo "4. Click on the artifact name to download"
+          echo ""
+          echo "The downloaded file is a .tar.gz archive containing"
+          echo "all files from the repository."
+          echo ""
+          echo "To extract on Linux/Mac:"
+          echo "  tar -xzf ${{ steps.create_backup.outputs.archive_name }}"
+          echo ""
+          echo "To extract on Windows:"
+          echo "  Use 7-Zip or WinRAR to extract the archive"
+          echo "============================================"
