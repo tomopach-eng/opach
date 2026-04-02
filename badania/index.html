@@ -1,1 +1,175 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generator Wywiadów AI</title>
+    <style>
+        :root {
+            --primary: #4e73df;
+            --primary-hover: #2e59d9;
+            --bg: #f8f9fc;
+            --card-bg: #ffffff;
+            --text: #4e73df;
+            --label: #5a5c69;
+        }
 
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: var(--bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+            width: 100%;
+            max-width: 500px;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: var(--text);
+            text-align: center;
+            font-size: 22px;
+            margin-bottom: 25px;
+        }
+
+        .field {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--label);
+            font-size: 14px;
+        }
+
+        input[type="text"], input[type="email"], input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d3e2;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        input[type="file"] {
+            background: #fdfdfd;
+            font-size: 13px;
+        }
+
+        .file-info {
+            font-size: 11px;
+            color: #858796;
+            margin-top: 4px;
+        }
+
+        button {
+            width: 100%;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover { background-color: var(--primary-hover); }
+        button:disabled { background-color: #eaecf4; color: #b7b9cc; cursor: not-allowed; }
+
+        #status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .success { background-color: #1cc88a; color: white; }
+        .error { background-color: #e74a3b; color: white; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Generator Wywiadów Badawczych</h2>
+    <form id="interviewForm">
+        <div class="field">
+            <label>Scenariusz wywiadu (.txt):</label>
+            <input type="file" name="scenariusz" accept=".txt" required>
+            <div class="file-info">Plik z listą pytań (Moderator: ...)</div>
+        </div>
+
+        <div class="field">
+            <label>Persona respondenta (.txt):</label>
+            <input type="file" name="persona" accept=".txt" required>
+            <div class="file-info">Opis postaci i fakty o niej.</div>
+        </div>
+
+        <div class="field">
+            <label>Twój Email:</label>
+            <input type="email" name="Twój Email" placeholder="Twoja nazwa@domena.pl" required>
+        </div>
+
+        <button type="submit" id="submitBtn">Generuj Wywiad</button>
+    </form>
+    <div id="status"></div>
+</div>
+
+<script>
+    const form = document.getElementById('interviewForm');
+    const btn = document.getElementById('submitBtn');
+    const statusDiv = document.getElementById('status');
+
+    // ADRES WEBHOOKA - Skopiuj go z węzła "n8n Form Trigger" (zakładka Webhook URLs)
+    const WEBHOOK_URL = 'https://jeff104-20104.mikrus.cloud/form/0aa29b42-7179-4fa5-9e46-8100e82b6067';
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        btn.disabled = true;
+        btn.innerText = 'Przesyłanie plików...';
+        statusDiv.style.display = 'none';
+
+        const formData = new FormData(form);
+
+        try {
+            const response = await fetch(WEBHOOK_URL, {
+                method: 'POST',
+                body: formData // Przy plikach NIE używamy JSON.stringify
+            });
+
+            if (response.ok) {
+                statusDiv.className = 'success';
+                statusDiv.innerText = "Dziękujemy! Pliki zostały przyjęte. System AI rozpoczyna wywiad. Raport otrzymasz e-mailem.";
+                form.reset();
+            } else {
+                statusDiv.className = 'error';
+                statusDiv.innerText = "Błąd serwera. Upewnij się, że workflow jest aktywny.";
+            }
+        } catch (error) {
+            statusDiv.className = 'error';
+            statusDiv.innerText = "Błąd połączenia. Sprawdź, czy adres n8n jest poprawny.";
+        } finally {
+            statusDiv.style.display = 'block';
+            btn.disabled = false;
+            btn.innerText = 'Generuj Wywiad';
+        }
+    });
+</script>
+
+</body>
+</html>
