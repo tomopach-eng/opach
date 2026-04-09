@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Workflow Interface</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .dot-pulse { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans h-screen flex flex-col">
+
+    <header class="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900">
+        <h1 class="text-xl font-bold text-blue-400"><i class="fas fa-robot mr-2"></i>RAG Workflow</h1>
+        <div class="flex items-center gap-4">
+            <span id="connection-status" class="text-sm text-gray-400">
+                <i class="fas fa-circle text-green-500 mr-1"></i> System gotowy
+            </span>
+        </div>
+    </header>
+
+    <main class="flex-1 flex overflow-hidden">
+        <aside class="w-80 border-r border-gray-800 p-6 bg-gray-900/50 flex flex-col">
+            <h2 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Źródła wiedzy</h2>
+            
+            <div id="drop-zone" class="border-2 border-dashed border-gray-700 rounded-xl p-6 text-center hover:border-blue-500 transition-all cursor-pointer mb-6 group">
+                <i class="fas fa-file-upload text-2xl mb-2 text-gray-500 group-hover:text-blue-400 transition-colors"></i>
+                <p class="text-xs text-gray-400">Dodaj dokumenty bazy (PDF, CSV, TXT)</p>
+                <input type="file" id="file-input" class="hidden" multiple accept=".pdf,.txt,.docx,.csv,.json">
+            </div>
+
+            <div id="file-list" class="flex-1 overflow-y-auto space-y-2">
+                </div>
+        </aside>
+
+        <section class="flex-1 flex flex-col bg-gray-800/20">
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-6">
+                <div class="flex justify-start">
+                    <div class="bg-gray-800 border border-gray-700 p-4 rounded-2xl rounded-tl-none max-w-[85%] text-sm leading-relaxed">
+                        System RAG zainicjalizowany. Prześlij pliki do bazy wektorowej, aby zacząć generowanie odpowiedzi na podstawie Twoich danych.
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-6 bg-gray-900/80 border-t border-gray-800">
+                <div class="max-w-4xl mx-auto">
+                    <div class="relative flex items-center">
+                        <input type="text" id="user-input" 
+                               placeholder="Zadaj pytanie do swoich dokumentów..." 
+                               class="w-full bg-gray-800 border border-gray-700 rounded-xl pl-4 pr-14 py-4 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-white">
+                        <button id="send-btn" class="absolute right-2 bg-blue-600 hover:bg-blue-500 text-white w-10 h-10 rounded-lg flex items-center justify-center transition-colors shadow-lg">
+                            <i class="fas fa-arrow-up"></i>
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-gray-500 mt-2 text-center uppercase">AI może generować błędy. Weryfikuj kluczowe informacje.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+<script>
+    // 1. GLOBALNA KONFIGURACJA SESJI
+    // Używamy localStorage, aby sesja była stała dla danej karty, dopóki jej nie zamkniesz/wyczyścisz
+    if (!localStorage.getItem('ragSessionId')) {
+        localStorage.setItem('ragSessionId', Math.random().toString(36).substring(7));
+    }
+    const SESSION_ID = localStorage.getItem('ragSessionId');
+    console.log("Aktywna sesja:", SESSION_ID);
+
+    // 2. ADRESY URL n8n
+    const N8N_UPLOAD_URL = 'https://jeff104-20104.mikrus.cloud/webhook/upload_data';
+    const N8N_CHAT_URL = 'https://jeff104-20104.mikrus.cloud/webhook/chat';
+
+    // 3. ELEMENTY UI
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const fileList = document.getElementById('file-list');
+    const chatMessages = document.getElementById('chat-messages');
+    const userInput = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+
+    // 4. OBSŁUGA UPLOADU
+    dropZone.onclick = () => fileInput.click();
+
+    fileInput.onchange = async (e) => {
+        const files = Array.from(e.target.files);
+        for (const file of files) {
+            addFileToList(file.name);
+            
+            const formData = new FormData();
+            formData.append('data', file);
+            formData.append('sessionId', SESSION_ID); // Kluczowe dla filtrowania w n8n
+
+            try {
+                const response = await fetch(N8N_UPLOAD_URL, {
+                    method: 'POST',
+                    body: formData // Przeglądarka sama wstawi Multipart Boundary
+                });
+                
+                if (response.ok) {
+                    updateFileStatus(file.name, 'success');
+                } else {
+                    updateFileStatus(file.name, 'error');
+                }
+            } catch (err) {
+                updateFileStatus(file.name, 'error');
+                console.error("Błąd uploadu:", err);
+            }
+        }
+    };
+
+    // 5. OBSŁUGA CZATU
+    async function handleSendMessage() {
+        const question = userInput.value.trim();
+        if (!question) return;
+
+        appendMessage(question, true);
+        userInput.value = '';
+
+        const loadingId = 'msg-' + Date.now();
+        appendLoadingMessage(loadingId);
+
+        try {
+            const response = await fetch(N8N_CHAT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    chatInput: question,
+                    sessionId: SESSION_ID 
+                })
+            });
+
+            const data = await response.json();
+            removeLoadingMessage(loadingId);
+            
+            // n8n zazwyczaj zwraca odpowiedź w polu 'output' lub 'text'
+            const botResponse = data.output || data.text || data.response || "Agent nie zwrócił treści.";
+            appendMessage(botResponse);
+            
+        } catch (err) {
+            removeLoadingMessage(loadingId);
+            appendMessage("Błąd połączenia z Agentem. Sprawdź Webhook n8n.", false, true);
+        }
+    }
+
+    // 6. FUNKCJE POMOCNICZE UI
+    function addFileToList(name) {
+        const id = `file-${name.replace(/[^\w]/g, '-')}`;
+        const item = document.createElement('div');
+        item.id = id;
+        item.className = 'flex items-center justify-between bg-gray-800/80 p-3 rounded-lg border border-gray-700 text-xs mb-2';
+        item.innerHTML = `
+            <span class="truncate pr-2"><i class="fas fa-file-alt mr-2 text-blue-400"></i>${name}</span>
+            <span class="status-icon"><i class="fas fa-spinner fa-spin text-blue-500"></i></span>
+        `;
+        fileList.appendChild(item);
+    }
+
+    function updateFileStatus(name, status) {
+        const id = `file-${name.replace(/[^\w]/g, '-')}`;
+        const icon = document.querySelector(`#${id} .status-icon`);
+        if (!icon) return;
+        icon.innerHTML = status === 'success' 
+            ? '<i class="fas fa-check text-green-500"></i>' 
+            : '<i class="fas fa-exclamation-triangle text-red-500"></i>';
+    }
+
+    function appendMessage(text, isUser = false, isError = false) {
+        const wrapper = document.createElement('div');
+        wrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`;
+        const msg = document.createElement('div');
+        msg.className = isUser 
+            ? 'bg-blue-600 text-white p-4 rounded-2xl rounded-tr-none max-w-[85%] text-sm'
+            : `${isError ? 'bg-red-900/20 text-red-200 border-red-800' : 'bg-gray-800 border-gray-700'} border p-4 rounded-2xl rounded-tl-none max-w-[85%] text-sm`;
+        msg.innerText = text;
+        wrapper.appendChild(msg);
+        chatMessages.appendChild(wrapper);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function appendLoadingMessage(id) {
+        const wrapper = document.createElement('div');
+        wrapper.id = id;
+        wrapper.className = 'flex justify-start mb-4';
+        wrapper.innerHTML = `
+            <div class="bg-gray-800 border border-gray-700 p-4 rounded-2xl rounded-tl-none flex gap-1">
+                <div class="w-2 h-2 bg-gray-500 rounded-full dot-pulse"></div>
+                <div class="w-2 h-2 bg-gray-500 rounded-full dot-pulse" style="animation-delay: 0.2s"></div>
+                <div class="w-2 h-2 bg-gray-500 rounded-full dot-pulse" style="animation-delay: 0.4s"></div>
+            </div>
+        `;
+        chatMessages.appendChild(wrapper);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function removeLoadingMessage(id) {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+    }
+
+    sendBtn.onclick = handleSendMessage;
+    userInput.onkeypress = (e) => { if(e.key === 'Enter') handleSendMessage(); };
+</script>
+</body>
+</html>
