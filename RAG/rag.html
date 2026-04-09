@@ -62,7 +62,16 @@
         </section>
     </main>
 
+<script>
+    // Generuje unikalny ID sesji dla każdego odświeżenia strony
+    const sessionId = Math.random().toString(36).substring(7);
+    console.log("Twoja unikalna sesja to:", sessionId);
+
+    // Reszta Twoich stałych (URL-e do n8n)
+    const N8N_UPLOAD_URL = 'https://jeff104-20104.mikrus.cloud/webhook/upload_data';
+    const N8N_CHAT_URL = 'https://jeff104-20104.mikrus.cloud/webhook/chat';
     <script>
+
     // POPRAWKA 1: Unikalny sessionId per sesja przeglądarki (przetrwa odświeżenie strony)
     const SESSION_ID = localStorage.getItem('ragSessionId') ?? (() => {
         const id = crypto.randomUUID();
@@ -120,6 +129,21 @@
 
         const loadingId = 'msg-' + Date.now();
         appendLoadingMessage(loadingId);
+
+	// Przykład modyfikacji wewnątrz funkcji uploadu:
+	const formData = new FormData();
+	formData.append('data', file); // Twój plik
+	formData.append('sessionId', sessionId); // DODAJ TO POLE
+
+	// Przykład modyfikacji wewnątrz funkcji chatu:
+	const response = await fetch(N8N_CHAT_URL, {
+    	method: 'POST',
+    	headers: { 'Content-Type': 'application/json' },
+    	body: JSON.stringify({ 
+        	chatInput: question,
+        	sessionId: sessionId // DODAJ TO POLE
+    		})
+	});
 
         try {
             const response = await fetch(N8N_CHAT_WEBHOOK_URL, {
