@@ -63,10 +63,12 @@
     </main>
 
 <script>
-    // Generuje unikalny ID sesji dla każdego odświeżenia strony
-    const sessionId = Math.random().toString(36).substring(7);
-    console.log("Twoja unikalna sesja to:", sessionId);
+    // To musi być na samej górze, poza wszelkimi funkcjami!
+    window.sessionId = Math.random().toString(36).substring(7);
+    console.log("Sesja zainicjalizowana:", window.sessionId);
 
+    // ... reszta Twojego kodu ...
+</script>
     // Reszta Twoich stałych (URL-e do n8n)
     const N8N_UPLOAD_URL = 'https://jeff104-20104.mikrus.cloud/webhook/upload_data';
     const N8N_CHAT_URL = 'https://jeff104-20104.mikrus.cloud/webhook/chat';
