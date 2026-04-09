@@ -1,5 +1,22 @@
 name: Lighthouse CI
+name: Deploy Website
 
+on:
+  push:
+    branches:
+      - main
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # DOPISZ TO TUTAJ
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # Reszta Twoich kroków (np. npm install, build itd.)
 on:
   # push:
   #   branches: [ main, master ]
