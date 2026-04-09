@@ -32,8 +32,7 @@
                 <input type="file" id="file-input" class="hidden" multiple accept=".pdf,.txt,.docx,.csv,.json">
             </div>
 
-            <div id="file-list" class="flex-1 overflow-y-auto space-y-2">
-                </div>
+            <div id="file-list" class="flex-1 overflow-y-auto space-y-2"></div>
         </aside>
 
         <section class="flex-1 flex flex-col bg-gray-800/20">
@@ -63,7 +62,6 @@
 
 <script>
     // 1. GLOBALNA KONFIGURACJA SESJI
-    // Używamy localStorage, aby sesja była stała dla danej karty, dopóki jej nie zamkniesz/wyczyścisz
     if (!localStorage.getItem('ragSessionId')) {
         localStorage.setItem('ragSessionId', Math.random().toString(36).substring(7));
     }
@@ -89,21 +87,23 @@
         const files = Array.from(e.target.files);
         for (const file of files) {
             addFileToList(file.name);
-            
+
             const formData = new FormData();
             formData.append('data', file);
-            formData.append('sessionId', SESSION_ID); // Kluczowe dla filtrowania w n8n
+            // sessionId przekazany jako query param — nie miesza się z binarnym ciałem requestu
+            const uploadUrl = `${N8N_UPLOAD_URL}?sessionId=${encodeURIComponent(SESSION_ID)}`;
 
             try {
-                const response = await fetch(N8N_UPLOAD_URL, {
+                const response = await fetch(uploadUrl, {
                     method: 'POST',
-                    body: formData // Przeglądarka sama wstawi Multipart Boundary
+                    body: formData
                 });
-                
+
                 if (response.ok) {
                     updateFileStatus(file.name, 'success');
                 } else {
                     updateFileStatus(file.name, 'error');
+                    console.error("Błąd uploadu:", response.status, await response.text());
                 }
             } catch (err) {
                 updateFileStatus(file.name, 'error');
@@ -127,19 +127,18 @@
             const response = await fetch(N8N_CHAT_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     chatInput: question,
-                    sessionId: SESSION_ID 
+                    sessionId: SESSION_ID
                 })
             });
 
             const data = await response.json();
             removeLoadingMessage(loadingId);
-            
-            // n8n zazwyczaj zwraca odpowiedź w polu 'output' lub 'text'
+
             const botResponse = data.output || data.text || data.response || "Agent nie zwrócił treści.";
             appendMessage(botResponse);
-            
+
         } catch (err) {
             removeLoadingMessage(loadingId);
             appendMessage("Błąd połączenia z Agentem. Sprawdź Webhook n8n.", false, true);
@@ -163,8 +162,8 @@
         const id = `file-${name.replace(/[^\w]/g, '-')}`;
         const icon = document.querySelector(`#${id} .status-icon`);
         if (!icon) return;
-        icon.innerHTML = status === 'success' 
-            ? '<i class="fas fa-check text-green-500"></i>' 
+        icon.innerHTML = status === 'success'
+            ? '<i class="fas fa-check text-green-500"></i>'
             : '<i class="fas fa-exclamation-triangle text-red-500"></i>';
     }
 
@@ -172,7 +171,7 @@
         const wrapper = document.createElement('div');
         wrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`;
         const msg = document.createElement('div');
-        msg.className = isUser 
+        msg.className = isUser
             ? 'bg-blue-600 text-white p-4 rounded-2xl rounded-tr-none max-w-[85%] text-sm'
             : `${isError ? 'bg-red-900/20 text-red-200 border-red-800' : 'bg-gray-800 border-gray-700'} border p-4 rounded-2xl rounded-tl-none max-w-[85%] text-sm`;
         msg.innerText = text;
@@ -202,7 +201,7 @@
     }
 
     sendBtn.onclick = handleSendMessage;
-    userInput.onkeypress = (e) => { if(e.key === 'Enter') handleSendMessage(); };
+    userInput.onkeypress = (e) => { if (e.key === 'Enter') handleSendMessage(); };
 </script>
 </body>
 </html>
