@@ -30,7 +30,7 @@
             <div id="drop-zone" class="border-2 border-dashed border-gray-700 rounded-xl p-6 text-center hover:border-blue-500 transition-all cursor-pointer mb-6 group">
                 <i class="fas fa-file-upload text-2xl mb-2 text-gray-500 group-hover:text-blue-400 transition-colors"></i>
                 <p class="text-xs text-gray-400">Dodaj dokumenty bazy (PDF, TXT)</p>
-                <input type="file" id="file-input" class="hidden" multiple accept=".pdf,.txt,.docx">
+                <input type="file" id="file-input" class="hidden" multiple accept=".pdf,.txt,.docx,.csv,.json,.epub">
             </div>
 
             <div id="file-list" class="flex-1 overflow-y-auto space-y-2">
@@ -145,17 +145,26 @@
     }
 
     // --- FUNKCJE POMOCNICZE UI ---
-    function addFileToList(name, status) {
-        const id = `file-${name.replace(/[^\w]/g, '-')}`;
-        const item = document.createElement('div');
-        item.id = id;
-        item.className = 'flex items-center justify-between bg-gray-800/80 p-3 rounded-lg border border-gray-700 text-xs transition-all';
-        item.innerHTML = `
-            <span class="truncate pr-2"><i class="far fa-file-alt mr-2 text-blue-400"></i>${name}</span>
-            <span class="status-icon"><i class="fas fa-spinner fa-spin text-blue-500"></i></span>
-        `;
-        fileList.appendChild(item);
-    }
+function addFileToList(name, status) {
+    const id = `file-${name.replace(/[^\w]/g, '-')}`;
+    const ext = name.split('.').pop().toLowerCase();
+    
+    // Dobieramy ikonę i kolor
+    let iconClass = 'fa-file-alt text-blue-400';
+    if (ext === 'pdf') iconClass = 'fa-file-pdf text-red-400';
+    if (ext === 'csv' || ext === 'xlsx') iconClass = 'fa-file-csv text-green-400';
+    if (ext === 'json') iconClass = 'fa-file-code text-yellow-400';
+    if (ext === 'docx') iconClass = 'fa-file-word text-blue-500';
+
+    const item = document.createElement('div');
+    item.id = id;
+    item.className = 'flex items-center justify-between bg-gray-800/80 p-3 rounded-lg border border-gray-700 text-xs transition-all';
+    item.innerHTML = `
+        <span class="truncate pr-2"><i class="fas ${iconClass} mr-2"></i>${name}</span>
+        <span class="status-icon"><i class="fas fa-spinner fa-spin text-blue-500"></i></span>
+    `;
+    fileList.appendChild(item);
+}
 
     function updateFileStatus(name, status) {
         const id = `file-${name.replace(/[^\w]/g, '-')}`;
