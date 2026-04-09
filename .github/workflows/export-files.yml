@@ -1,6 +1,20 @@
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 name: Export Files (Backup)
+name: Deploy Website
+on:
+  push:
+    branches:
+      - main
+env: # DODAJ TĘ SEKCJĘ
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # ... reszta kroków ...
 
 on:
   workflow_dispatch:
