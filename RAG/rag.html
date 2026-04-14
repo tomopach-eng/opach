@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RAG Workflow - Professional Interface</title>
+    <title>RAG Workflow Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
@@ -36,7 +36,6 @@
             background: var(--sidebar-bg); padding: 40px; border-radius: 12px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.3); width: 100%; max-width: 400px;
         }
-        .login-card h2 { margin-top: 0; text-align: center; }
 
         input, button { 
             padding: 12px 15px; border-radius: 8px; border: 1px solid var(--border); 
@@ -55,53 +54,68 @@
 
         /* Sidebar */
         aside {
-            width: 300px; background: var(--sidebar-bg); border-right: 1px solid var(--border);
+            width: 320px; background: var(--sidebar-bg); border-right: 1px solid var(--border);
             display: flex; flex-direction: column; padding: 20px; flex-shrink: 0;
         }
-        .user-info { margin-bottom: 30px; font-size: 13px; opacity: 0.8; }
-        .upload-zone { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px; }
-        .upload-zone h4 { margin-top: 0; }
-        #status { margin-top: 10px; font-size: 12px; color: #94a3b8; }
+        .user-info { margin-bottom: 25px; font-size: 13px; opacity: 0.8; }
+        
+        .upload-zone { padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+        .upload-zone h4 { margin: 0 0 10px 0; font-size: 14px; color: var(--accent); }
+        #status { margin-top: 8px; font-size: 11px; color: #94a3b8; }
+
+        /* Lista dokumentów */
+        .documents-section {
+            margin-top: 20px; flex-grow: 1; overflow-y: auto;
+        }
+        .documents-section h4 { font-size: 14px; margin-bottom: 10px; opacity: 0.7; }
+        .file-item {
+            background: rgba(255,255,255,0.03); padding: 10px; border-radius: 6px;
+            margin-bottom: 8px; font-size: 12px; display: flex; align-items: center;
+            border: 1px solid transparent; transition: 0.2s;
+        }
+        .file-item:hover { border-color: var(--accent); background: rgba(255,255,255,0.07); }
+        .file-icon { margin-right: 10px; font-size: 16px; }
 
         /* Chat Area */
         main { flex-grow: 1; display: flex; flex-direction: column; background: var(--bg-dark); }
         
         #chat-box { 
-            flex-grow: 1; overflow-y: auto; padding: 40px 10%; 
+            flex-grow: 1; overflow-y: auto; padding: 40px 15%; 
             display: flex; flex-direction: column; gap: 20px;
         }
 
         .msg { 
-            max-width: 80%; padding: 15px 20px; border-radius: 12px; line-height: 1.5;
-            position: relative; animation: fadeIn 0.3s ease;
+            max-width: 85%; padding: 15px 20px; border-radius: 12px; line-height: 1.6;
+            animation: fadeIn 0.3s ease; position: relative;
         }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
         .msg.user { align-self: flex-end; background: var(--accent); color: white; border-bottom-right-radius: 2px; }
         .msg.ai { align-self: flex-start; background: var(--msg-ai); border: 1px solid var(--border); border-bottom-left-radius: 2px; }
-        .msg b { display: block; font-size: 11px; text-transform: uppercase; margin-bottom: 5px; opacity: 0.7; }
+        .msg b { display: block; font-size: 10px; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px; opacity: 0.6; }
 
         /* Input Area */
-        .input-container { 
-            padding: 20px 10% 40px 10%; background: linear-gradient(transparent, var(--bg-dark) 20%);
-        }
+        .input-container { padding: 20px 15% 40px 15%; }
         .input-wrapper { 
             display: flex; background: var(--sidebar-bg); border: 1px solid var(--border);
-            border-radius: 12px; padding: 5px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            border-radius: 14px; padding: 6px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
-        #chat-input { background: transparent; border: none; margin: 0; flex-grow: 1; padding: 15px; }
-        #send-btn { width: auto; padding: 0 25px; margin: 5px; }
+        #chat-input { background: transparent; border: none; margin: 0; flex-grow: 1; padding: 12px 15px; color: white; }
+        #send-btn { width: auto; padding: 0 20px; }
 
-        .logout-btn { background: #ef4444; margin-top: auto; }
+        .logout-btn { background: #ef4444; margin-top: 20px; padding: 10px; font-size: 12px; }
         .logout-btn:hover { background: #dc2626; }
 
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
     </style>
 </head>
 <body>
 
     <div id="auth-section">
         <div class="login-card">
-            <h2>Witaj w RAG</h2>
+            <h2 style="text-align:center; margin-top:0;">RAG Workflow</h2>
             <input type="email" id="email" placeholder="Email">
             <input type="password" id="password" placeholder="Hasło">
             <button onclick="handleLogin()">Zaloguj się</button>
@@ -111,29 +125,34 @@
     <div id="app-section" class="hidden">
         <aside>
             <div class="user-info">
-                <span>Zalogowano jako:</span><br>
+                <span style="opacity:0.6">Zalogowany:</span><br>
                 <strong id="user-email"></strong>
             </div>
 
             <div class="upload-zone">
-                <h4>Baza wiedzy</h4>
-                <input type="file" id="file-input">
-                <button onclick="uploadFile()" style="margin-top:10px;">Wgraj dokument</button>
-                <div id="status">System gotowy</div>
+                <h4>+ Dodaj wiedzę</h4>
+                <input type="file" id="file-input" style="font-size: 11px; padding: 5px; background: transparent;">
+                <button onclick="uploadFile()" style="margin-top:10px; font-size: 12px; padding: 8px;">Wgraj plik</button>
+                <div id="status">Wybierz plik PDF lub TXT</div>
             </div>
 
-            <button onclick="handleLogout()" class="logout-btn">Wyloguj</button>
+            <div class="documents-section">
+                <h4>Twoje dokumenty</h4>
+                <div id="file-list-container">
+                    </div>
+            </div>
+
+            <button onclick="handleLogout()" class="logout-btn">Wyloguj sesję</button>
         </aside>
 
         <main>
             <div id="chat-box">
-                <div class="msg ai"><b>System</b>Witaj! W czym mogę Ci dzisiaj pomóc?</div>
-            </div>
+                </div>
             
             <div class="input-container">
                 <div class="input-wrapper">
-                    <input type="text" id="chat-input" placeholder="Zadaj pytanie dotyczące Twoich plików...">
-                    <button id="send-btn" onclick="sendMessage()">Zapytaj</button>
+                    <input type="text" id="chat-input" placeholder="Zadaj pytanie dotyczące dokumentów...">
+                    <button id="send-btn" onclick="sendMessage()">Wyślij</button>
                 </div>
             </div>
         </main>
@@ -143,56 +162,81 @@
     // --- KONFIGURACJA ---
     const S_URL = 'https://sgoogjybtirsduukiiiq.supabase.co';
     const S_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnb29nanlidGlyc2R1dWtpaWlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2Njc3MjcsImV4cCI6MjA5MTI0MzcyN30._yRZZZ3mwKIcLVmHLjo17DmafgFjH_-m0LyT3UxxQoI';
-    const N8N_CHAT = 'https://jeff104-20104.mikrus.cloud/webhook/chat';
-    const N8N_UP = 'https://jeff104-20104.mikrus.cloud/webhook/upload_data';
+    const N8N_CHAT = 'https://jeff104-20104.mikrus.cloud/webhook-test/chat';
+    const N8N_UP = 'https://jeff104-20104.mikrus.cloud/webhook-test/upload_data';
 
     const supabaseClient = window.supabase.createClient(S_URL, S_KEY);
 
-    // Obsługa logowania
+    // LOGOWANIE
     async function handleLogin() {
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
         const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        if (error) alert("Błąd logowania: " + error.message);
+        if (error) alert("Błąd: " + error.message);
         else checkUser();
     }
 
-    // Obsługa wylogowania (Naprawione)
+    // WYLOGOWANIE (NAPRAWIONE)
     async function handleLogout() {
-        const { error } = await supabaseClient.auth.signOut();
-        if (error) alert(error.message);
-        window.location.reload(); // Odśwież stronę, by wrócić do ekranu logowania
+        await supabaseClient.auth.signOut();
+        window.location.reload();
     }
 
-    // Sprawdzanie stanu użytkownika
+    // SPRAWDZANIE UŻYTKOWNIKA I INICJALIZACJA
     async function checkUser() {
         const { data: { user } } = await supabaseClient.auth.getUser();
         if (user) {
             document.getElementById('auth-section').classList.add('hidden');
             document.getElementById('app-section').classList.remove('hidden');
             document.getElementById('user-email').innerText = user.email;
+            
+            // Pobierz listę plików przy starcie
+            loadUserDocuments(user.id);
+            
+            // Pierwsza wiadomość systemowa
+            if(document.getElementById('chat-box').innerHTML.trim() === "") {
+                addMessage("Witaj! Twoja baza wiedzy jest gotowa. O co chcesz zapytać?", "ai");
+            }
         }
     }
 
-    // Przewijanie czatu na dół
-    function scrollChat() {
-        const chatBox = document.getElementById('chat-box');
-        chatBox.scrollTop = chatBox.scrollHeight;
+    // POBIERANIE LISTY DOKUMENTÓW
+    async function loadUserDocuments(userId) {
+        const listContainer = document.getElementById('file-list-container');
+        
+        // Zmień 'documents' na nazwę Twojej tabeli w Supabase
+        const { data, error } = await supabaseClient
+            .from('documents') 
+            .select('file_name')
+            .eq('userId', userId);
+
+        if (error) {
+            listContainer.innerHTML = '<p style="font-size:10px; color:red;">Nie udało się pobrać listy.</p>';
+            return;
+        }
+
+        if (data.length === 0) {
+            listContainer.innerHTML = '<p style="font-size:11px; opacity:0.5;">Brak dokumentów w bazie.</p>';
+            return;
+        }
+
+        listContainer.innerHTML = data.map(doc => `
+            <div class="file-item">
+                <span class="file-icon">📄</span>
+                <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${doc.file_name}</span>
+            </div>
+        `).join('');
     }
 
-    // Wysyłanie wiadomości
+    // WYSYŁANIE WIADOMOŚCI
     async function sendMessage() {
         const input = document.getElementById('chat-input');
         const text = input.value.trim();
         if (!text) return;
 
         const { data: { user } } = await supabaseClient.auth.getUser();
-        
-        // Dodaj wiadomość użytkownika do UI
-        const chatBox = document.getElementById('chat-box');
-        chatBox.innerHTML += `<div class="msg user"><b>Ty</b>${text}</div>`;
+        addMessage(text, "user");
         input.value = '';
-        scrollChat();
 
         try {
             const res = await fetch(N8N_CHAT, {
@@ -201,16 +245,20 @@
                 body: JSON.stringify({ chatInput: text, userId: user.id })
             });
             const json = await res.json();
-            
-            // Dodaj odpowiedź AI
-            chatBox.innerHTML += `<div class="msg ai"><b>AI Assistant</b>${json.output || json.text || "Brak odpowiedzi"}</div>`;
-            scrollChat();
+            addMessage(json.output || json.text || "Przetworzyłem Twoje pytanie, ale nie otrzymałem odpowiedzi.", "ai");
         } catch (err) {
-            chatBox.innerHTML += `<div class="msg ai" style="color: #ef4444;"><b>Błąd</b>Nie udało się połączyć z serwerem.</div>`;
+            addMessage("Błąd połączenia z silnikiem AI.", "ai");
         }
     }
 
-    // Obsługa plików
+    function addMessage(text, side) {
+        const chatBox = document.getElementById('chat-box');
+        const label = side === "user" ? "Ty" : "AI Assistant";
+        chatBox.innerHTML += `<div class="msg ${side}"><b>${label}</b>${text}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // UPLOAD PLIKU
     async function uploadFile() {
         const fileInput = document.getElementById('file-input');
         const file = fileInput.files[0];
@@ -218,7 +266,7 @@
 
         const { data: { user } } = await supabaseClient.auth.getUser();
         const status = document.getElementById('status');
-        status.innerText = "⏳ Wysyłanie...";
+        status.innerText = "⏳ Przesyłanie...";
 
         const formData = new FormData();
         formData.append('data', file);
@@ -227,15 +275,17 @@
 
         try {
             await fetch(N8N_UP, { method: 'POST', body: formData });
-            status.innerText = "✅ Plik wgrany pomyślnie!";
+            status.innerText = "✅ Plik wgrany!";
+            // Odśwież listę dokumentów po wgraniu
+            loadUserDocuments(user.id);
             fileInput.value = "";
         } catch (err) {
-            status.innerText = "❌ Błąd wysyłania.";
+            status.innerText = "❌ Błąd n8n.";
         }
     }
 
-    // Obsługa klawisza Enter
-    document.getElementById('chat-input')?.addEventListener('keypress', function (e) {
+    // Obsługa Enter
+    document.getElementById('chat-input').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') sendMessage();
     });
 
