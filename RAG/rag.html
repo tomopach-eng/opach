@@ -75,38 +75,52 @@
         input.value = '';
     }
 
-	async function uploadFile() {
-    	const fileInput = document.getElementById('file-input'); // upewnij się, że ID się zgadza
-   	const file = fileInput.files[0];
-	// DODAJ TO: Zabezpieczenie przed pustym kliknięciem
-    	if (!file) {
-        alert("Najpierw wybierz plik!");
+    async function uploadFile() {
+    	const fileInput = document.getElementById('file-input');
+    	const file = fileInput.files[0];
+    	const status = document.getElementById('status');
+
+    if (!file) {
+        alert("Wybierz plik!");
         return;
     }
-        const { data: { user } } = await supabaseClient.auth.getUser();
-        const formData = new FormData();
-        formData.append('data', file);
-        formData.append('userId', user.id);
-        formData.append('fileName', file.name);
 
-        document.getElementById('status').innerText = "Wysyłanie...";
-        try {
-        const res = await fetch(N8N_UP, { method: 'POST', body: formData });
+    // 1. Pobierz aktualnego użytkownika
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    
+    if (!user) {
+        alert("Błąd: Nie jesteś zalogowany!");
+        return;
+    }
+
+    console.log("Wysyłam plik dla ID:", user.id); // Sprawdź to w konsoli F12!
+
+    // 2. Przygotuj paczkę danych
+    const formData = new FormData();
+    formData.append('data', file);      // Plik binarny
+    formData.append('userId', user.id); // To musi tu być!
+    formData.append('fileName', file.name);
+
+    status.innerText = "Wysyłanie...";
+
+    try {
+        const res = await fetch(N8N_UP, {
+            method: 'POST',
+            // WAŻNE: Nie dodawaj headers: {'Content-Type': '...'}! 
+            // Przeglądarka sama wstawi poprawny boundary dla FormData.
+            body: formData 
+        });
+
         if (res.ok) {
-            document.getElementById('status').innerText = "Gotowe!";
+            status.innerText = "Gotowe!";
         } else {
-            document.getElementById('status').innerText = "Błąd serwera: " + res.status;
+            status.innerText = "Błąd serwera: " + res.status;
         }
     } catch (err) {
-        document.getElementById('status').innerText = "Błąd połączenia (CORS)!";
+        status.innerText = "Błąd połączenia!";
         console.error(err);
     }
 }
-    async function handleLogout() {
-        await supabaseClient.auth.signOut();
-        location.reload();
-    }
-
     checkUser();
 </script>
 </body>
