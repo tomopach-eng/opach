@@ -64,51 +64,30 @@
         #status { margin-top: 8px; font-size: 11px; color: #94a3b8; }
 
         /* Lista dokumentów */
-        .documents-section {
-            margin-top: 20px; flex-grow: 1; overflow-y: auto;
-        }
+        .documents-section { margin-top: 20px; flex-grow: 1; overflow-y: auto; }
         .documents-section h4 { font-size: 14px; margin-bottom: 10px; opacity: 0.7; }
         .file-item {
             background: rgba(255,255,255,0.03); padding: 10px; border-radius: 6px;
             margin-bottom: 8px; font-size: 12px; display: flex; align-items: center;
-            border: 1px solid transparent; transition: 0.2s;
         }
-        .file-item:hover { border-color: var(--accent); background: rgba(255,255,255,0.07); }
-        .file-icon { margin-right: 10px; font-size: 16px; }
 
         /* Chat Area */
         main { flex-grow: 1; display: flex; flex-direction: column; background: var(--bg-dark); }
-        
-        #chat-box { 
-            flex-grow: 1; overflow-y: auto; padding: 40px 15%; 
-            display: flex; flex-direction: column; gap: 20px;
-        }
+        #chat-box { flex-grow: 1; overflow-y: auto; padding: 40px 15%; display: flex; flex-direction: column; gap: 20px; }
 
-        .msg { 
-            max-width: 85%; padding: 15px 20px; border-radius: 12px; line-height: 1.6;
-            animation: fadeIn 0.3s ease; position: relative;
-        }
+        .msg { max-width: 85%; padding: 15px 20px; border-radius: 12px; line-height: 1.6; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
         .msg.user { align-self: flex-end; background: var(--accent); color: white; border-bottom-right-radius: 2px; }
         .msg.ai { align-self: flex-start; background: var(--msg-ai); border: 1px solid var(--border); border-bottom-left-radius: 2px; }
-        .msg b { display: block; font-size: 10px; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px; opacity: 0.6; }
+        .msg b { display: block; font-size: 10px; text-transform: uppercase; margin-bottom: 8px; opacity: 0.6; }
 
         /* Input Area */
         .input-container { padding: 20px 15% 40px 15%; }
-        .input-wrapper { 
-            display: flex; background: var(--sidebar-bg); border: 1px solid var(--border);
-            border-radius: 14px; padding: 6px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        }
-        #chat-input { background: transparent; border: none; margin: 0; flex-grow: 1; padding: 12px 15px; color: white; }
-        #send-btn { width: auto; padding: 0 20px; }
-
+        .input-wrapper { display: flex; background: var(--sidebar-bg); border: 1px solid var(--border); border-radius: 14px; padding: 6px; }
+        #chat-input { background: transparent; border: none; flex-grow: 1; padding: 12px 15px; color: white; }
+        
         .logout-btn { background: #ef4444; margin-top: 20px; padding: 10px; font-size: 12px; }
-        .logout-btn:hover { background: #dc2626; }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -131,35 +110,33 @@
 
             <div class="upload-zone">
                 <h4>+ Dodaj wiedzę</h4>
-                <input type="file" id="file-input" style="font-size: 11px; padding: 5px; background: transparent;">
-                <button onclick="uploadFile()" style="margin-top:10px; font-size: 12px; padding: 8px;">Wgraj plik</button>
-                <div id="status">Wybierz plik PDF lub TXT</div>
+                <input type="file" id="file-input" style="font-size: 11px; color: #94a3b8;">
+                <button onclick="uploadFile()" style="margin-top:10px;">Wgraj plik</button>
+                <div id="status">Wybierz dokument PDF/TXT</div>
             </div>
 
             <div class="documents-section">
                 <h4>Twoje dokumenty</h4>
                 <div id="file-list-container">
-                    </div>
+                    <p style="font-size:11px; opacity:0.5;">Ładowanie listy...</p>
+                </div>
             </div>
 
             <button onclick="handleLogout()" class="logout-btn">Wyloguj sesję</button>
         </aside>
 
         <main>
-            <div id="chat-box">
-                </div>
-            
+            <div id="chat-box"></div>
             <div class="input-container">
                 <div class="input-wrapper">
                     <input type="text" id="chat-input" placeholder="Zadaj pytanie dotyczące dokumentów...">
-                    <button id="send-btn" onclick="sendMessage()">Wyślij</button>
+                    <button id="send-btn" onclick="sendMessage()" style="width: auto; padding: 0 20px;">Wyślij</button>
                 </div>
             </div>
         </main>
     </div>
 
 <script>
-    // --- KONFIGURACJA ---
     const S_URL = 'https://sgoogjybtirsduukiiiq.supabase.co';
     const S_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnb29nanlidGlyc2R1dWtpaWlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2Njc3MjcsImV4cCI6MjA5MTI0MzcyN30._yRZZZ3mwKIcLVmHLjo17DmafgFjH_-m0LyT3UxxQoI';
     const N8N_CHAT = 'https://jeff104-20104.mikrus.cloud/webhook-test/chat';
@@ -167,7 +144,6 @@
 
     const supabaseClient = window.supabase.createClient(S_URL, S_KEY);
 
-    // LOGOWANIE
     async function handleLogin() {
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
@@ -176,59 +152,82 @@
         else checkUser();
     }
 
-    // WYLOGOWANIE (NAPRAWIONE)
     async function handleLogout() {
         await supabaseClient.auth.signOut();
         window.location.reload();
     }
 
-    // SPRAWDZANIE UŻYTKOWNIKA I INICJALIZACJA
     async function checkUser() {
         const { data: { user } } = await supabaseClient.auth.getUser();
         if (user) {
             document.getElementById('auth-section').classList.add('hidden');
             document.getElementById('app-section').classList.remove('hidden');
             document.getElementById('user-email').innerText = user.email;
-            
-            // Pobierz listę plików przy starcie
             loadUserDocuments(user.id);
-            
-            // Pierwsza wiadomość systemowa
-            if(document.getElementById('chat-box').innerHTML.trim() === "") {
-                addMessage("Witaj! Twoja baza wiedzy jest gotowa. O co chcesz zapytać?", "ai");
+            if(document.getElementById('chat-box').innerHTML === "") {
+                addMessage("Witaj! Baza wiedzy jest gotowa. O co chcesz zapytać?", "ai");
             }
         }
     }
 
-    // POBIERANIE LISTY DOKUMENTÓW
+    // POBIERANIE LISTY (Zmieniono na user_id)
     async function loadUserDocuments(userId) {
         const listContainer = document.getElementById('file-list-container');
-        
-        // Zmień 'documents' na nazwę Twojej tabeli w Supabase
         const { data, error } = await supabaseClient
             .from('documents') 
             .select('file_name')
-            .eq('userId', userId);
+            .eq('user_id', userId); // POPRAWKA: user_id
 
         if (error) {
-            listContainer.innerHTML = '<p style="font-size:10px; color:red;">Nie udało się pobrać listy.</p>';
+            listContainer.innerHTML = '<p style="font-size:11px; color:#ef4444;">Błąd połączenia z bazą.</p>';
             return;
         }
 
         if (data.length === 0) {
-            listContainer.innerHTML = '<p style="font-size:11px; opacity:0.5;">Brak dokumentów w bazie.</p>';
+            listContainer.innerHTML = '<p style="font-size:11px; opacity:0.5;">Brak plików w bazie.</p>';
             return;
         }
 
         listContainer.innerHTML = data.map(doc => `
-            <div class="file-item">
-                <span class="file-icon">📄</span>
-                <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${doc.file_name}</span>
-            </div>
+            <div class="file-item">📄 <span style="margin-left:8px;">${doc.file_name}</span></div>
         `).join('');
     }
 
-    // WYSYŁANIE WIADOMOŚCI
+    // WGRYWANIE PLIKU (Dodano insert do bazy)
+    async function uploadFile() {
+        const fileInput = document.getElementById('file-input');
+        const file = fileInput.files[0];
+        if (!file) return alert("Wybierz plik!");
+
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        const status = document.getElementById('status');
+        status.innerText = "⏳ Przesyłanie...";
+
+        const formData = new FormData();
+        formData.append('data', file);
+        formData.append('userId', user.id);
+        formData.append('fileName', file.name);
+
+        try {
+            // 1. Wysyłka do n8n
+            const n8nRes = await fetch(N8N_UP, { method: 'POST', body: formData });
+            
+            if (!n8nRes.ok) throw new Error("n8n error");
+
+            // 2. Zapis do Supabase (żeby lista się odświeżyła)
+            await supabaseClient
+                .from('documents')
+                .insert([{ file_name: file.name, user_id: user.id }]);
+
+            status.innerText = "✅ Wgrano pomyślnie!";
+            loadUserDocuments(user.id);
+            fileInput.value = "";
+        } catch (err) {
+            console.error(err);
+            status.innerText = "❌ Błąd n8n lub CORS.";
+        }
+    }
+
     async function sendMessage() {
         const input = document.getElementById('chat-input');
         const text = input.value.trim();
@@ -245,51 +244,4 @@
                 body: JSON.stringify({ chatInput: text, userId: user.id })
             });
             const json = await res.json();
-            addMessage(json.output || json.text || "Przetworzyłem Twoje pytanie, ale nie otrzymałem odpowiedzi.", "ai");
-        } catch (err) {
-            addMessage("Błąd połączenia z silnikiem AI.", "ai");
-        }
-    }
-
-    function addMessage(text, side) {
-        const chatBox = document.getElementById('chat-box');
-        const label = side === "user" ? "Ty" : "AI Assistant";
-        chatBox.innerHTML += `<div class="msg ${side}"><b>${label}</b>${text}</div>`;
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-
-    // UPLOAD PLIKU
-    async function uploadFile() {
-        const fileInput = document.getElementById('file-input');
-        const file = fileInput.files[0];
-        if (!file) return alert("Wybierz plik!");
-
-        const { data: { user } } = await supabaseClient.auth.getUser();
-        const status = document.getElementById('status');
-        status.innerText = "⏳ Przesyłanie...";
-
-        const formData = new FormData();
-        formData.append('data', file);
-        formData.append('userId', user.id);
-        formData.append('fileName', file.name);
-
-        try {
-            await fetch(N8N_UP, { method: 'POST', body: formData });
-            status.innerText = "✅ Plik wgrany!";
-            // Odśwież listę dokumentów po wgraniu
-            loadUserDocuments(user.id);
-            fileInput.value = "";
-        } catch (err) {
-            status.innerText = "❌ Błąd n8n.";
-        }
-    }
-
-    // Obsługa Enter
-    document.getElementById('chat-input').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendMessage();
-    });
-
-    checkUser();
-</script>
-</body>
-</html>
+            addMessage(json.output || json
