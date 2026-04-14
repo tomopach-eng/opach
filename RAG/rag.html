@@ -2,349 +2,98 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RAG Workflow - System Ekspercki</title>
+    <title>RAG Workflow</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --text-color: #f8fafc;
-            --accent-color: #3b82f6;
-            --secondary-bg: #1e293b;
-            --error-color: #ef4444;
-            --success-color: #22c55e;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
-
-        /* Sekcja Logowania */
-        #auth-container {
-            background: var(--card-bg);
-            padding: 20px;
-            text-align: center;
-            border-bottom: 1px solid #334155;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-
-        .auth-form input {
-            padding: 10px;
-            margin: 5px;
-            border-radius: 6px;
-            border: 1px solid #475569;
-            background: #0f172a;
-            color: white;
-            width: 200px;
-        }
-
-        /* Layout główny aplikacji */
-        #main-container {
-            display: grid;
-            grid-template-columns: 320px 1fr;
-            flex-grow: 1;
-            overflow: hidden;
-        }
-
-        /* Sidebar */
-        #sidebar {
-            background: var(--secondary-bg);
-            padding: 25px;
-            border-right: 1px solid #334155;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .file-list {
-            margin-top: 10px;
-            padding: 10px;
-            background: #0f172a;
-            border-radius: 8px;
-            font-size: 0.85em;
-            color: #94a3b8;
-            max-height: 300px;
-            overflow-y: auto;
-            line-height: 1.6;
-        }
-
-        /* Okno Czatu */
-        #chat-window {
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-            background: var(--bg-color);
-        }
-
-        #messages {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            overflow-y: auto;
-            padding-bottom: 20px;
-        }
-
-        .message {
-            max-width: 75%;
-            padding: 14px;
-            border-radius: 12px;
-            font-size: 0.95em;
-            line-height: 1.5;
-            word-wrap: break-word;
-        }
-
-        .user-msg { background: var(--accent-color); align-self: flex-end; color: white; }
-        .ai-msg { background: #334155; align-self: flex-start; color: #f1f5f9; border: 1px solid #475569; }
-
-        /* Obszar wpisywania */
-        .input-area {
-            display: flex;
-            gap: 12px;
-            padding-top: 20px;
-            border-top: 1px solid #334155;
-        }
-
-        #chat-input {
-            flex-grow: 1;
-            padding: 14px;
-            border-radius: 8px;
-            border: 1px solid #475569;
-            background: #1e293b;
-            color: white;
-            outline: none;
-        }
-
-        #chat-input:focus { border-color: var(--accent-color); }
-
-        button {
-            padding: 10px 20px;
-            background: var(--accent-color);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: opacity 0.2s;
-        }
-
-        button:hover { opacity: 0.9; }
-        button:disabled { background: #475569; cursor: not-allowed; }
-
-        .hidden { display: none !important; }
-        #upload-status { font-size: 0.8em; margin-top: 5px; }
+        body { font-family: sans-serif; background: #0f172a; color: white; padding: 20px; }
+        .hidden { display: none; }
+        input, button { padding: 10px; margin: 5px; border-radius: 5px; border: none; }
+        button { background: #3b82f6; color: white; cursor: pointer; }
+        .msg { padding: 10px; margin: 10px 0; border-radius: 5px; background: #1e293b; }
     </style>
 </head>
 <body>
 
-<div id="auth-container">
-    <div id="login-form" class="auth-form">
+    <div id="auth-section">
         <input type="email" id="email" placeholder="Email">
         <input type="password" id="password" placeholder="Hasło">
         <button onclick="handleLogin()">Zaloguj</button>
-        <button onclick="handleSignUp()" style="background: #475569;">Zarejestruj</button>
-    </div>
-    <div id="user-info" class="hidden">
-        Zalogowany jako: <strong id="user-email"></strong>
-        <button onclick="handleLogout()" style="background: var(--error-color); margin-left: 15px;">Wyloguj</button>
-    </div>
-</div>
-
-<div id="main-container" class="hidden">
-    <div id="sidebar">
-        <h3>Źródła wiedzy</h3>
-        <p style="font-size: 0.8em; color: #94a3b8;">Pliki są przypisane na stałe do Twojego konta.</p>
-        <input type="file" id="file-upload" accept=".pdf,.csv,.txt" style="font-size: 0.8em;">
-        <button id="upload-btn" onclick="uploadFile()">Dodaj dokument</button>
-        <div id="upload-status"></div>
-        
-        <h4>Wgrane pliki:</h4>
-        <div id="file-list" class="file-list">Brak dokumentów w bazie.</div>
     </div>
 
-    <div id="chat-window">
-        <div id="messages">
-            <div class="message ai-msg">System RAG zainicjalizowany. Zadaj pytanie na podstawie swoich dokumentów.</div>
-        </div>
-        <div class="input-area">
-            <input type="text" id="chat-input" placeholder="Wpisz pytanie..." onkeypress="if(event.key==='Enter') sendMessage()">
-            <button id="send-btn" onclick="sendMessage()">Wyślij</button>
-        </div>
+    <div id="app-section" class="hidden">
+        <p>Zalogowano jako: <span id="user-email"></span></p>
+        <button onclick="handleLogout()" style="background:red">Wyloguj</button>
+        <hr>
+        <input type="file" id="file-input">
+        <button onclick="uploadFile()">Wgraj plik</button>
+        <div id="status"></div>
+        <hr>
+        <div id="chat-box"></div>
+        <input type="text" id="chat-input" placeholder="Zadaj pytanie...">
+        <button onclick="sendMessage()">Zapytaj</button>
     </div>
-</div>
 
 <script>
-    // --- 1. KONFIGURACJA (UZUPEŁNIJ SWOJE DANE) ---
-    const SUPABASE_URL = 'https://sgoogjybtirsduukiiiq.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnb29nanlidGlyc2R1dWtpaWlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2Njc3MjcsImV4cCI6MjA5MTI0MzcyN30._yRZZZ3mwKIcLVmHLjo17DmafgFjH_-m0LyT3UxxQoI';
-    const N8N_CHAT_WEBHOOK = 'https://jeff104-20104.mikrus.cloud/workflow/webhook/chat';
-    const N8N_UPLOAD_WEBHOOK = 'https://jeff104-20104.mikrus.cloud/workflow/webhook/upload_data';
+    // --- KONFIGURACJA ---
+    const S_URL = 'https://sgoogjybtirsduukiiiq.supabase.co';
+    const S_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnb29nanlidGlyc2R1dWtpaWlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2Njc3MjcsImV4cCI6MjA5MTI0MzcyN30._yRZZZ3mwKIcLVmHLjo17DmafgFjH_-m0LyT3UxxQoI';
+    const N8N_CHAT = 'https://jeff104-20104.mikrus.cloud/workflow/webhook/chat';
+    const N8N_UP = 'https://jeff104-20104.mikrus.cloud/workflow/webhook/upload_data';
 
-    // Inicjalizacja klienta Supabase (TYLKO RAZ)
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // Inicjalizacja - TA LINIA MOŻE BYĆ TYLKO RAZ!
+    const supabaseClient = window.supabase.createClient(S_URL, S_KEY);
 
-    // --- 2. ZARZĄDZANIE INTERFEJSEM ---
-    async function updateUI() {
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (user) {
-            document.getElementById('login-form').classList.add('hidden');
-            document.getElementById('user-info').classList.remove('hidden');
-            document.getElementById('main-container').classList.remove('hidden');
-            document.getElementById('user-email').innerText = user.email;
-            loadFileList(user.id);
-        } else {
-            document.getElementById('login-form').classList.remove('hidden');
-            document.getElementById('user-info').classList.add('hidden');
-            document.getElementById('main-container').classList.add('hidden');
-        }
-    }
-
-    // --- 3. AUTORYZACJA ---
     async function handleLogin() {
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
-        
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) alert("Błąd logowania: " + error.message);
-        else updateUI();
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) alert(error.message);
+        else checkUser();
     }
 
-    async function handleSignUp() {
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
+    async function checkUser() {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (user) {
+            document.getElementById('auth-section').classList.add('hidden');
+            document.getElementById('app-section').classList.remove('hidden');
+            document.getElementById('user-email').innerText = user.email;
+        }
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('chat-input');
+        const { data: { user } } = await supabaseClient.auth.getUser();
         
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) alert("Błąd rejestracji: " + error.message);
-        else alert("Rejestracja pomyślna! Sprawdź email lub zaloguj się (jeśli potwierdzenie jest wyłączone).");
+        const res = await fetch(N8N_CHAT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chatInput: input.value, userId: user.id })
+        });
+        const json = await res.json();
+        document.getElementById('chat-box').innerHTML += `<div class="msg"><b>Ty:</b> ${input.value}</div>`;
+        document.getElementById('chat-box').innerHTML += `<div class="msg"><b>AI:</b> ${json.output || json.text}</div>`;
+        input.value = '';
+    }
+
+    async function uploadFile() {
+        const file = document.getElementById('file-input').files[0];
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        const formData = new FormData();
+        formData.append('data', file);
+        formData.append('userId', user.id);
+        formData.append('fileName', file.name);
+
+        document.getElementById('status').innerText = "Wysyłanie...";
+        await fetch(N8N_UP, { method: 'POST', body: formData });
+        document.getElementById('status').innerText = "Gotowe!";
     }
 
     async function handleLogout() {
-        await supabase.auth.signOut();
-        location.reload(); // Najbezpieczniejsze odświeżenie stanu
+        await supabaseClient.auth.signOut();
+        location.reload();
     }
 
-    // --- 4. CZAT (KOMUNIKACJA Z N8N) ---
-    async function sendMessage() {
-        const input = document.getElementById('chat-input');
-        const text = input.value.trim();
-        const sendBtn = document.getElementById('send-btn');
-        
-        if (!text) return;
-
-        addMessage(text, 'user-msg');
-        input.value = '';
-        sendBtn.disabled = true;
-        
-        const { data: { user } } = await supabase.auth.getUser();
-
-        try {
-            const response = await fetch(N8N_CHAT_WEBHOOK, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    chatInput: text, 
-                    userId: user.id 
-                })
-            });
-            const data = await response.json();
-            
-            // Obsługa różnych formatów odpowiedzi z n8n
-            const aiText = data.output || data.text || data.message || "Przepraszam, nie otrzymałem odpowiedzi z serwera.";
-            addMessage(aiText, 'ai-msg');
-        } catch (e) {
-            addMessage("Błąd połączenia z systemem AI (n8n).", 'ai-msg');
-        } finally {
-            sendBtn.disabled = false;
-        }
-    }
-
-    function addMessage(text, className) {
-        const messagesDiv = document.getElementById('messages');
-        const div = document.createElement('div');
-        div.className = `message ${className}`;
-        div.innerText = text;
-        messagesDiv.appendChild(div);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    }
-
-    // --- 5. PLIKI (UPLOAD I LISTA) ---
-    async function uploadFile() {
-        const fileInput = document.getElementById('file-upload');
-        const btn = document.getElementById('upload-btn');
-        const status = document.getElementById('upload-status');
-        
-        if (!fileInput.files[0]) {
-            alert("Wybierz plik przed wysłaniem.");
-            return;
-        }
-        
-        btn.disabled = true;
-        status.innerText = "⏳ Przetwarzanie dokumentu...";
-        status.style.color = "var(--accent-color)";
-        
-        const { data: { user } } = await supabase.auth.getUser();
-        const formData = new FormData();
-        formData.append('data', fileInput.files[0]);
-        formData.append('userId', user.id);
-        formData.append('fileName', fileInput.files[0].name);
-
-        try {
-            const res = await fetch(N8N_UPLOAD_WEBHOOK, { 
-                method: 'POST', 
-                body: formData 
-            });
-            
-            if (res.ok) {
-                status.innerText = "✅ Dokument dodany pomyślnie!";
-                status.style.color = "var(--success-color)";
-                setTimeout(() => { 
-                    status.innerText = ""; 
-                    loadFileList(user.id); 
-                }, 3000);
-            } else {
-                throw new Error("Serwer zwrócił błąd.");
-            }
-        } catch (e) {
-            status.innerText = "❌ Błąd wysyłania do n8n.";
-            status.style.color = "var(--error-color)";
-        } finally {
-            btn.disabled = false;
-            fileInput.value = "";
-        }
-    }
-
-    async function loadFileList(uid) {
-        try {
-            // Pobieramy unikalne nazwy plików z metadanych przypisanych do userId
-            const { data, error } = await supabase
-                .from('documents')
-                .select('metadata')
-                .filter('metadata->>userId', 'eq', uid);
-
-            if (data && data.length > 0) {
-                const uniqueNames = [...new Set(data.map(d => d.metadata.fileName).filter(Boolean))];
-                document.getElementById('file-list').innerHTML = uniqueNames.length > 0 
-                    ? uniqueNames.join('<br>') 
-                    : "Brak nazw plików w metadanych.";
-            } else {
-                document.getElementById('file-list').innerText = "Brak dokumentów w Twojej bazie.";
-            }
-        } catch (e) {
-            console.error("Błąd ładowania listy:", e);
-        }
-    }
-
-    // Start aplikacji
-    updateUI();
+    checkUser();
 </script>
-
 </body>
 </html>
