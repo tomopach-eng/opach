@@ -3,205 +3,285 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RAG Workflow Interface</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <title>RAG Workflow - System Ekspercki</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        .dot-pulse { animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #f8fafc;
+            --accent-color: #3b82f6;
+            --error-color: #ef4444;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Sekcja Autoryzacji */
+        #auth-container {
+            background: var(--card-bg);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #334155;
+        }
+
+        .auth-form input {
+            padding: 8px;
+            margin: 5px;
+            border-radius: 4px;
+            border: 1px solid #475569;
+            background: #0f172a;
+            color: white;
+        }
+
+        /* Layout główny */
+        #main-container {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+
+        /* Sidebar - Wiedza */
+        #sidebar {
+            background: var(--card-bg);
+            padding: 20px;
+            border-right: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .file-list {
+            font-size: 0.9em;
+            color: #94a3b8;
+        }
+
+        /* Okno Czatu */
+        #chat-container {
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        #messages {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 12px;
+            border-radius: 8px;
+            line-height: 1.5;
+        }
+
+        .user-msg { background: var(--accent-color); align-self: flex-end; }
+        .ai-msg { background: #334155; align-self: flex-start; }
+
+        /* Inputy */
+        .input-area {
+            display: flex;
+            gap: 10px;
+            padding: 20px;
+            background: var(--bg-color);
+        }
+
+        input[type="text"] {
+            flex-grow: 1;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #475569;
+            background: #1e293b;
+            color: white;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .hidden { display: none; }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-100 font-sans h-screen flex flex-col">
+<body>
 
-    <header class="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900">
-        <h1 class="text-xl font-bold text-blue-400"><i class="fas fa-robot mr-2"></i>RAG Workflow</h1>
-        <div class="flex items-center gap-4">
-            <span id="connection-status" class="text-sm text-gray-400">
-                <i class="fas fa-circle text-green-500 mr-1"></i> System gotowy
-            </span>
+<div id="auth-container">
+    <div id="login-form" class="auth-form">
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="password" placeholder="Hasło">
+        <button onclick="handleLogin()">Zaloguj</button>
+        <button onclick="handleSignUp()" style="background: #64748b;">Zarejestruj</button>
+    </div>
+    <div id="user-info" class="hidden">
+        Zalogowany jako: <span id="user-email"></span>
+        <button onclick="handleLogout()" style="background: #ef4444; margin-left: 10px;">Wyloguj</button>
+    </div>
+</div>
+
+<div id="main-container" class="hidden">
+    <div id="sidebar">
+        <h3>Źródła wiedzy</h3>
+        <input type="file" id="file-upload" accept=".pdf,.csv,.txt">
+        <button id="upload-btn" onclick="uploadFile()">Dodaj dokument</button>
+        <div id="upload-status"></div>
+        
+        <h4>Twoje dokumenty:</h4>
+        <div id="file-list" class="file-list">Brak dokumentów</div>
+    </div>
+
+    <div id="chat-container">
+        <div id="messages">
+            <div class="message ai-msg">System RAG gotowy. O co chcesz zapytać?</div>
         </div>
-    </header>
-
-    <main class="flex-1 flex overflow-hidden">
-        <aside class="w-80 border-r border-gray-800 p-6 bg-gray-900/50 flex flex-col">
-            <h2 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Źródła wiedzy</h2>
-            
-            <div id="drop-zone" class="border-2 border-dashed border-gray-700 rounded-xl p-6 text-center hover:border-blue-500 transition-all cursor-pointer mb-6 group">
-                <i class="fas fa-file-upload text-2xl mb-2 text-gray-500 group-hover:text-blue-400 transition-colors"></i>
-                <p class="text-xs text-gray-400">Dodaj dokumenty bazy (PDF, CSV, TXT)</p>
-                <input type="file" id="file-input" class="hidden" multiple accept=".pdf,.txt,.docx,.csv,.json">
-            </div>
-
-            <div id="file-list" class="flex-1 overflow-y-auto space-y-2"></div>
-        </aside>
-
-        <section class="flex-1 flex flex-col bg-gray-800/20">
-            <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-6">
-                <div class="flex justify-start">
-                    <div class="bg-gray-800 border border-gray-700 p-4 rounded-2xl rounded-tl-none max-w-[85%] text-sm leading-relaxed">
-                        System RAG zainicjalizowany. Prześlij pliki do bazy wektorowej, aby zacząć generowanie odpowiedzi na podstawie Twoich danych.
-                    </div>
-                </div>
-            </div>
-
-            <div class="p-6 bg-gray-900/80 border-t border-gray-800">
-                <div class="max-w-4xl mx-auto">
-                    <div class="relative flex items-center">
-                        <input type="text" id="user-input" 
-                               placeholder="Zadaj pytanie do swoich dokumentów..." 
-                               class="w-full bg-gray-800 border border-gray-700 rounded-xl pl-4 pr-14 py-4 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-white">
-                        <button id="send-btn" class="absolute right-2 bg-blue-600 hover:bg-blue-500 text-white w-10 h-10 rounded-lg flex items-center justify-center transition-colors shadow-lg">
-                            <i class="fas fa-arrow-up"></i>
-                        </button>
-                    </div>
-                    <p class="text-[10px] text-gray-500 mt-2 text-center uppercase">AI może generować błędy. Weryfikuj kluczowe informacje.</p>
-                </div>
-            </div>
-        </section>
-    </main>
+        <div class="input-area">
+            <input type="text" id="chat-input" placeholder="Zadaj pytanie...">
+            <button id="send-btn" onclick="sendMessage()">Wyślij</button>
+        </div>
+    </div>
+</div>
 
 <script>
-    // 1. GLOBALNA KONFIGURACJA SESJI
-    if (!localStorage.getItem('ragSessionId')) {
-        localStorage.setItem('ragSessionId', Math.random().toString(36).substring(7));
-    }
-    const SESSION_ID = localStorage.getItem('ragSessionId');
-    console.log("Aktywna sesja:", SESSION_ID);
+    // --- KONFIGURACJA ---
+    const SUPABASE_URL = 'https://sgoogjybtirsduukiiiq.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnb29nanlidGlyc2R1dWtpaWlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2Njc3MjcsImV4cCI6MjA5MTI0MzcyN30._yRZZZ3mwKIcLVmHLjo17DmafgFjH_-m0LyT3UxxQoI';
+    const N8N_CHAT_WEBHOOK = 'https://n8n.TWOJA.DOMENA/webhook/chat';
+    const N8N_UPLOAD_WEBHOOK = 'https://n8n.TWOJA.DOMENA/webhook/upload_data';
 
-    // 2. ADRESY URL n8n
-    const N8N_UPLOAD_URL = 'https://jeff104-20104.mikrus.cloud/webhook/upload_data';
-    const N8N_CHAT_URL = 'https://jeff104-20104.mikrus.cloud/webhook/chat';
+    const supabase = window.supabase.createClient(sb_publishable__DtAu7X4BEKtsNAhn0k1-w_J6cYsk5n, SUPABASE_KEY);
 
-    // 3. ELEMENTY UI
-    const dropZone = document.getElementById('drop-zone');
-    const fileInput = document.getElementById('file-input');
-    const fileList = document.getElementById('file-list');
-    const chatMessages = document.getElementById('chat-messages');
-    const userInput = document.getElementById('user-input');
-    const sendBtn = document.getElementById('send-btn');
-
-    // 4. OBSŁUGA UPLOADU
-    dropZone.onclick = () => fileInput.click();
-
-    fileInput.onchange = async (e) => {
-        const files = Array.from(e.target.files);
-        for (const file of files) {
-            addFileToList(file.name);
-
-            const formData = new FormData();
-            formData.append('data', file);
-            // sessionId przekazany jako query param — nie miesza się z binarnym ciałem requestu
-            const uploadUrl = `${N8N_UPLOAD_URL}?sessionId=${encodeURIComponent(SESSION_ID)}`;
-
-            try {
-                const response = await fetch(uploadUrl, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (response.ok) {
-                    updateFileStatus(file.name, 'success');
-                } else {
-                    updateFileStatus(file.name, 'error');
-                    console.error("Błąd uploadu:", response.status, await response.text());
-                }
-            } catch (err) {
-                updateFileStatus(file.name, 'error');
-                console.error("Błąd uploadu:", err);
-            }
+    // --- AUTORYZACJA ---
+    async function updateUI() {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            document.getElementById('login-form').classList.add('hidden');
+            document.getElementById('user-info').classList.remove('hidden');
+            document.getElementById('main-container').classList.remove('hidden');
+            document.getElementById('user-email').innerText = user.email;
+            loadFileList();
+        } else {
+            document.getElementById('login-form').classList.remove('hidden');
+            document.getElementById('user-info').classList.add('hidden');
+            document.getElementById('main-container').classList.add('hidden');
         }
-    };
+    }
 
-    // 5. OBSŁUGA CZATU
-    async function handleSendMessage() {
-        const question = userInput.value.trim();
-        if (!question) return;
+    async function handleLogin() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) alert(error.message);
+        else updateUI();
+    }
 
-        appendMessage(question, true);
-        userInput.value = '';
+    async function handleSignUp() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) alert(error.message);
+        else alert('Sprawdź email, aby potwierdzić rejestrację!');
+    }
 
-        const loadingId = 'msg-' + Date.now();
-        appendLoadingMessage(loadingId);
+    async function handleLogout() {
+        await supabase.auth.signOut();
+        updateUI();
+    }
+
+    // --- CZAT ---
+    async function sendMessage() {
+        const input = document.getElementById('chat-input');
+        const text = input.value.trim();
+        if (!text) return;
+
+        addMessage(text, 'user-msg');
+        input.value = '';
+        
+        const { data: { user } } = await supabase.auth.getUser();
 
         try {
-            const response = await fetch(N8N_CHAT_URL, {
+            const response = await fetch(N8N_CHAT_WEBHOOK, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    chatInput: question,
-                    sessionId: SESSION_ID
+                body: JSON.stringify({ 
+                    chatInput: text, 
+                    userId: user.id 
                 })
             });
-
             const data = await response.json();
-            removeLoadingMessage(loadingId);
-
-            const botResponse = data.output || data.text || data.response || "Agent nie zwrócił treści.";
-            appendMessage(botResponse);
-
-        } catch (err) {
-            removeLoadingMessage(loadingId);
-            appendMessage("Błąd połączenia z Agentem. Sprawdź Webhook n8n.", false, true);
+            addMessage(data.output || data.text || "Brak odpowiedzi", 'ai-msg');
+        } catch (e) {
+            addMessage("Błąd połączenia z n8n.", 'ai-msg');
         }
     }
 
-    // 6. FUNKCJE POMOCNICZE UI
-    function addFileToList(name) {
-        const id = `file-${name.replace(/[^\w]/g, '-')}`;
-        const item = document.createElement('div');
-        item.id = id;
-        item.className = 'flex items-center justify-between bg-gray-800/80 p-3 rounded-lg border border-gray-700 text-xs mb-2';
-        item.innerHTML = `
-            <span class="truncate pr-2"><i class="fas fa-file-alt mr-2 text-blue-400"></i>${name}</span>
-            <span class="status-icon"><i class="fas fa-spinner fa-spin text-blue-500"></i></span>
-        `;
-        fileList.appendChild(item);
+    function addMessage(text, className) {
+        const div = document.createElement('div');
+        div.className = `message ${className}`;
+        div.innerText = text;
+        document.getElementById('messages').appendChild(div);
+        document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight;
     }
 
-    function updateFileStatus(name, status) {
-        const id = `file-${name.replace(/[^\w]/g, '-')}`;
-        const icon = document.querySelector(`#${id} .status-icon`);
-        if (!icon) return;
-        icon.innerHTML = status === 'success'
-            ? '<i class="fas fa-check text-green-500"></i>'
-            : '<i class="fas fa-exclamation-triangle text-red-500"></i>';
+    // --- PLIKI ---
+    async function uploadFile() {
+        const fileInput = document.getElementById('file-upload');
+        const btn = document.getElementById('upload-btn');
+        const status = document.getElementById('upload-status');
+        
+        if (!fileInput.files[0]) return;
+        
+        btn.disabled = true;
+        status.innerText = "Wysyłanie...";
+        
+        const { data: { user } } = await supabase.auth.getUser();
+        const formData = new FormData();
+        formData.append('data', fileInput.files[0]);
+        formData.append('userId', user.id);
+        formData.append('fileName', fileInput.files[0].name);
+
+        try {
+            await fetch(N8N_UPLOAD_WEBHOOK, { method: 'POST', body: formData });
+            status.innerText = "Sukces!";
+            setTimeout(() => { status.innerText = ""; loadFileList(); }, 2000);
+        } catch (e) {
+            status.innerText = "Błąd uploadu.";
+        } finally {
+            btn.disabled = false;
+        }
     }
 
-    function appendMessage(text, isUser = false, isError = false) {
-        const wrapper = document.createElement('div');
-        wrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`;
-        const msg = document.createElement('div');
-        msg.className = isUser
-            ? 'bg-blue-600 text-white p-4 rounded-2xl rounded-tr-none max-w-[85%] text-sm'
-            : `${isError ? 'bg-red-900/20 text-red-200 border-red-800' : 'bg-gray-800 border-gray-700'} border p-4 rounded-2xl rounded-tl-none max-w-[85%] text-sm`;
-        msg.innerText = text;
-        wrapper.appendChild(msg);
-        chatMessages.appendChild(wrapper);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+    async function loadFileList() {
+        const { data: { user } } = await supabase.auth.getUser();
+        // Pobieramy unikalne nazwy plików z metadanych w Twojej tabeli
+        const { data, error } = await supabase
+            .from('documents')
+            .select('metadata')
+            .filter('metadata->>userId', 'eq', user.id);
+
+        if (data && data.length > 0) {
+            const names = [...new Set(data.map(d => d.metadata.fileName || "Nieznany plik"))];
+            document.getElementById('file-list').innerHTML = names.join('<br>');
+        }
     }
 
-    function appendLoadingMessage(id) {
-        const wrapper = document.createElement('div');
-        wrapper.id = id;
-        wrapper.className = 'flex justify-start mb-4';
-        wrapper.innerHTML = `
-            <div class="bg-gray-800 border border-gray-700 p-4 rounded-2xl rounded-tl-none flex gap-1">
-                <div class="w-2 h-2 bg-gray-500 rounded-full dot-pulse"></div>
-                <div class="w-2 h-2 bg-gray-500 rounded-full dot-pulse" style="animation-delay: 0.2s"></div>
-                <div class="w-2 h-2 bg-gray-500 rounded-full dot-pulse" style="animation-delay: 0.4s"></div>
-            </div>
-        `;
-        chatMessages.appendChild(wrapper);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    function removeLoadingMessage(id) {
-        const el = document.getElementById(id);
-        if (el) el.remove();
-    }
-
-    sendBtn.onclick = handleSendMessage;
-    userInput.onkeypress = (e) => { if (e.key === 'Enter') handleSendMessage(); };
+    // Inicjalizacja przy starcie
+    updateUI();
 </script>
+
 </body>
 </html>
