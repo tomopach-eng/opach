@@ -37,8 +37,8 @@
     // --- KONFIGURACJA ---
     const S_URL = 'https://sgoogjybtirsduukiiiq.supabase.co';
     const S_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnb29nanlidGlyc2R1dWtpaWlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2Njc3MjcsImV4cCI6MjA5MTI0MzcyN30._yRZZZ3mwKIcLVmHLjo17DmafgFjH_-m0LyT3UxxQoI';
-    const N8N_CHAT = 'https://jeff104-20104.mikrus.cloud/workflow/webhook/chat';
-    const N8N_UP = 'https://jeff104-20104.mikrus.cloud/workflow/webhook/upload_data';
+    const N8N_CHAT = 'https://jeff104-20104.mikrus.cloud/webhook/chat';
+    const N8N_UP = 'https://jeff104-20104.mikrus.cloud/webhook/upload_data';
 
     // Inicjalizacja - TA LINIA MOŻE BYĆ TYLKO RAZ!
     const supabaseClient = window.supabase.createClient(S_URL, S_KEY);
@@ -75,8 +75,14 @@
         input.value = '';
     }
 
-    async function uploadFile() {
-        const file = document.getElementById('file-input').files[0];
+	async function uploadFile() {
+    	const fileInput = document.getElementById('file-input'); // upewnij się, że ID się zgadza
+   	const file = fileInput.files[0];
+	// DODAJ TO: Zabezpieczenie przed pustym kliknięciem
+    	if (!file) {
+        alert("Najpierw wybierz plik!");
+        return;
+    }
         const { data: { user } } = await supabaseClient.auth.getUser();
         const formData = new FormData();
         formData.append('data', file);
@@ -84,10 +90,18 @@
         formData.append('fileName', file.name);
 
         document.getElementById('status').innerText = "Wysyłanie...";
-        await fetch(N8N_UP, { method: 'POST', body: formData });
-        document.getElementById('status').innerText = "Gotowe!";
+        try {
+        const res = await fetch(N8N_UP, { method: 'POST', body: formData });
+        if (res.ok) {
+            document.getElementById('status').innerText = "Gotowe!";
+        } else {
+            document.getElementById('status').innerText = "Błąd serwera: " + res.status;
+        }
+    } catch (err) {
+        document.getElementById('status').innerText = "Błąd połączenia (CORS)!";
+        console.error(err);
     }
-
+}
     async function handleLogout() {
         await supabaseClient.auth.signOut();
         location.reload();
