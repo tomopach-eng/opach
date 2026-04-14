@@ -182,25 +182,30 @@
     }
 
     // Pobieranie dokumentów
-    async function loadUserDocuments(userId) {
+	async function loadUserDocuments(userId) {
         const listContainer = document.getElementById('file-list-container');
+        
+        // Pobieramy tylko unikalne nazwy plików
         const { data, error } = await supabaseClient
             .from('documents') 
             .select('file_name')
             .eq('user_id', userId);
 
         if (error) {
-            listContainer.innerHTML = '<p style="color:#ef4444; font-size:11px;">Błąd bazy danych.</p>';
+            listContainer.innerHTML = '<p style="font-size:11px; color:#ef4444;">Błąd bazy danych.</p>';
             return;
         }
 
-        if (data.length === 0) {
+        // Filtrujemy duplikaty w locie (żeby nie było 34 razy tego samego pliku)
+        const uniqueFiles = [...new Set(data.map(item => item.file_name))];
+
+        if (uniqueFiles.length === 0) {
             listContainer.innerHTML = '<p style="font-size:11px; opacity:0.5;">Baza wiedzy jest pusta.</p>';
             return;
         }
 
-        listContainer.innerHTML = data.map(doc => `
-            <div class="file-item">📄 <span style="margin-left:8px; overflow:hidden; text-overflow:ellipsis;">${doc.file_name}</span></div>
+        listContainer.innerHTML = uniqueFiles.map(fileName => `
+            <div class="file-item">📄 <span style="margin-left:8px;">${fileName}</span></div>
         `).join('');
     }
 
