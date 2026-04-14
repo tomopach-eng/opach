@@ -6,6 +6,7 @@
     <title>RAG Workflow Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
     <style>
         :root {
             --bg-dark: #0f172a;
@@ -88,6 +89,10 @@
         #chat-input { background: transparent; border: none; flex-grow: 1; padding: 12px 15px; color: white; }
         
         .logout-btn { background: #ef4444; margin-top: 20px; padding: 10px; font-size: 12px; }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -97,32 +102,32 @@
             <h2 style="text-align:center; margin-top:0;">RAG Workflow</h2>
             <input type="email" id="email" placeholder="Email">
             <input type="password" id="password" placeholder="Hasło">
-            <button onclick="handleLogin()">Zaloguj się</button>
+            <button id="login-btn">Zaloguj się</button>
         </div>
     </div>
 
     <div id="app-section" class="hidden">
         <aside>
             <div class="user-info">
-                <span style="opacity:0.6">Zalogowany:</span><br>
-                <strong id="user-email"></strong>
+                <span style="opacity:0.6">Użytkownik:</span><br>
+                <strong id="user-email">...</strong>
             </div>
 
             <div class="upload-zone">
-                <h4>+ Dodaj wiedzę</h4>
-                <input type="file" id="file-input" style="font-size: 11px; color: #94a3b8;">
-                <button onclick="uploadFile()" style="margin-top:10px;">Wgraj plik</button>
-                <div id="status">Wybierz dokument PDF/TXT</div>
+                <h4>+ Nowa Wiedza</h4>
+                <input type="file" id="file-input" style="font-size: 11px;">
+                <button id="upload-btn" style="margin-top:10px;">Wgraj dokument</button>
+                <div id="status">Wybierz plik PDF/TXT</div>
             </div>
 
             <div class="documents-section">
-                <h4>Twoje dokumenty</h4>
+                <h4>Baza dokumentów</h4>
                 <div id="file-list-container">
-                    <p style="font-size:11px; opacity:0.5;">Ładowanie listy...</p>
+                    <p style="font-size:11px; opacity:0.5;">Ładowanie plików...</p>
                 </div>
             </div>
 
-            <button onclick="handleLogout()" class="logout-btn">Wyloguj sesję</button>
+            <button id="logout-btn" class="logout-btn">Wyloguj sesję</button>
         </aside>
 
         <main>
@@ -130,13 +135,14 @@
             <div class="input-container">
                 <div class="input-wrapper">
                     <input type="text" id="chat-input" placeholder="Zadaj pytanie dotyczące dokumentów...">
-                    <button id="send-btn" onclick="sendMessage()" style="width: auto; padding: 0 20px;">Wyślij</button>
+                    <button id="send-btn" style="width: auto; padding: 0 20px;">Zapytaj</button>
                 </div>
             </div>
         </main>
     </div>
 
 <script>
+    // --- KONFIGURACJA ---
     const S_URL = 'https://sgoogjybtirsduukiiiq.supabase.co';
     const S_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnb29nanlidGlyc2R1dWtpaWlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2Njc3MjcsImV4cCI6MjA5MTI0MzcyN30._yRZZZ3mwKIcLVmHLjo17DmafgFjH_-m0LyT3UxxQoI';
     const N8N_CHAT = 'https://jeff104-20104.mikrus.cloud/webhook-test/chat';
@@ -144,19 +150,24 @@
 
     const supabaseClient = window.supabase.createClient(S_URL, S_KEY);
 
+    // --- FUNKCJE OBSŁUGI ---
+
+    // Logowanie
     async function handleLogin() {
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
-        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
         if (error) alert("Błąd: " + error.message);
         else checkUser();
     }
 
+    // Wylogowanie
     async function handleLogout() {
         await supabaseClient.auth.signOut();
         window.location.reload();
     }
 
+    // Sprawdzanie sesji
     async function checkUser() {
         const { data: { user } } = await supabaseClient.auth.getUser();
         if (user) {
@@ -165,35 +176,35 @@
             document.getElementById('user-email').innerText = user.email;
             loadUserDocuments(user.id);
             if(document.getElementById('chat-box').innerHTML === "") {
-                addMessage("Witaj! Baza wiedzy jest gotowa. O co chcesz zapytać?", "ai");
+                addMessage("Witaj w systemie RAG! Twoje dokumenty są gotowe do analizy.", "ai");
             }
         }
     }
 
-    // POBIERANIE LISTY (Zmieniono na user_id)
+    // Pobieranie dokumentów
     async function loadUserDocuments(userId) {
         const listContainer = document.getElementById('file-list-container');
         const { data, error } = await supabaseClient
             .from('documents') 
             .select('file_name')
-            .eq('user_id', userId); // POPRAWKA: user_id
+            .eq('user_id', userId);
 
         if (error) {
-            listContainer.innerHTML = '<p style="font-size:11px; color:#ef4444;">Błąd połączenia z bazą.</p>';
+            listContainer.innerHTML = '<p style="color:#ef4444; font-size:11px;">Błąd bazy danych.</p>';
             return;
         }
 
         if (data.length === 0) {
-            listContainer.innerHTML = '<p style="font-size:11px; opacity:0.5;">Brak plików w bazie.</p>';
+            listContainer.innerHTML = '<p style="font-size:11px; opacity:0.5;">Baza wiedzy jest pusta.</p>';
             return;
         }
 
         listContainer.innerHTML = data.map(doc => `
-            <div class="file-item">📄 <span style="margin-left:8px;">${doc.file_name}</span></div>
+            <div class="file-item">📄 <span style="margin-left:8px; overflow:hidden; text-overflow:ellipsis;">${doc.file_name}</span></div>
         `).join('');
     }
 
-    // WGRYWANIE PLIKU (Dodano insert do bazy)
+    // Wgrywanie plików
     async function uploadFile() {
         const fileInput = document.getElementById('file-input');
         const file = fileInput.files[0];
@@ -201,7 +212,7 @@
 
         const { data: { user } } = await supabaseClient.auth.getUser();
         const status = document.getElementById('status');
-        status.innerText = "⏳ Przesyłanie...";
+        status.innerText = "⏳ Wysyłanie...";
 
         const formData = new FormData();
         formData.append('data', file);
@@ -209,25 +220,22 @@
         formData.append('fileName', file.name);
 
         try {
-            // 1. Wysyłka do n8n
             const n8nRes = await fetch(N8N_UP, { method: 'POST', body: formData });
-            
-            if (!n8nRes.ok) throw new Error("n8n error");
+            if (!n8nRes.ok) throw new Error();
 
-            // 2. Zapis do Supabase (żeby lista się odświeżyła)
             await supabaseClient
                 .from('documents')
                 .insert([{ file_name: file.name, user_id: user.id }]);
 
-            status.innerText = "✅ Wgrano pomyślnie!";
+            status.innerText = "✅ Wgrano!";
             loadUserDocuments(user.id);
             fileInput.value = "";
         } catch (err) {
-            console.error(err);
-            status.innerText = "❌ Błąd n8n lub CORS.";
+            status.innerText = "❌ Błąd połączenia z n8n.";
         }
     }
 
+    // Chat
     async function sendMessage() {
         const input = document.getElementById('chat-input');
         const text = input.value.trim();
@@ -244,4 +252,31 @@
                 body: JSON.stringify({ chatInput: text, userId: user.id })
             });
             const json = await res.json();
-            addMessage(json.output || json
+            addMessage(json.output || json.text || "Brak odpowiedzi od AI.", "ai");
+        } catch (err) {
+            addMessage("Błąd połączenia z serwerem n8n.", "ai");
+        }
+    }
+
+    function addMessage(text, side) {
+        const chatBox = document.getElementById('chat-box');
+        const label = side === "user" ? "Ty" : "Asystent RAG";
+        chatBox.innerHTML += `<div class="msg ${side}"><b>${label}</b>${text}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // --- EVENT LISTENERS ---
+    // (Zamiast onclick w HTML, co jest bezpieczniejsze)
+    document.getElementById('login-btn').addEventListener('click', handleLogin);
+    document.getElementById('logout-btn').addEventListener('click', handleLogout);
+    document.getElementById('upload-btn').addEventListener('click', uploadFile);
+    document.getElementById('send-btn').addEventListener('click', sendMessage);
+    document.getElementById('chat-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage();
+    });
+
+    // Start
+    checkUser();
+</script>
+</body>
+</html>
