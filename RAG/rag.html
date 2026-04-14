@@ -75,50 +75,29 @@
         input.value = '';
     }
 
-    async function uploadFile() {
-    	const fileInput = document.getElementById('file-input');
-    	const file = fileInput.files[0];
-    	const status = document.getElementById('status');
+async function uploadFile() {
+    const fileInput = document.getElementById('file-input');
+    const file = fileInput.files[0];
+    if (!file) return alert("Wybierz plik!");
 
-    if (!file) {
-        alert("Wybierz plik!");
-        return;
-    }
-
-    // 1. Pobierz aktualnego użytkownika
     const { data: { user } } = await supabaseClient.auth.getUser();
-    
-    if (!user) {
-        alert("Błąd: Nie jesteś zalogowany!");
-        return;
-    }
+    if (!user) return alert("Błąd: Zaloguj się ponownie!");
 
-    console.log("Wysyłam plik dla ID:", user.id); // Sprawdź to w konsoli F12!
+    // TEN ALERT POWIE NAM PRAWDĘ:
+    alert("Wysyłam plik! Twoje ID to: " + user.id);
 
-    // 2. Przygotuj paczkę danych
     const formData = new FormData();
-    formData.append('data', file);      // Plik binarny
-    formData.append('userId', user.id); // To musi tu być!
+    formData.append('data', file);      // Plik
+    formData.append('userId', user.id); // TWOJE ID
     formData.append('fileName', file.name);
 
-    status.innerText = "Wysyłanie...";
+    document.getElementById('status').innerText = "Wysyłanie...";
 
     try {
-        const res = await fetch(N8N_UP, {
-            method: 'POST',
-            // WAŻNE: Nie dodawaj headers: {'Content-Type': '...'}! 
-            // Przeglądarka sama wstawi poprawny boundary dla FormData.
-            body: formData 
-        });
-
-        if (res.ok) {
-            status.innerText = "Gotowe!";
-        } else {
-            status.innerText = "Błąd serwera: " + res.status;
-        }
+        await fetch(N8N_UP, { method: 'POST', body: formData });
+        document.getElementById('status').innerText = "Gotowe!";
     } catch (err) {
-        status.innerText = "Błąd połączenia!";
-        console.error(err);
+        document.getElementById('status').innerText = "Błąd!";
     }
 }
     checkUser();
