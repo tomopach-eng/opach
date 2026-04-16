@@ -457,15 +457,23 @@
 
 <script>
 // ─── KONFIGURACJA ────────────────────────────────────────────
+// FIX: Move these to environment variables or a backend proxy in production.
+// The Supabase anon key is intentionally public, but webhook URLs are sensitive.
 const S_URL    = 'https://sgoogjybtirsduukiiiq.supabase.co';
 const S_KEY    = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnb29nanlidGlyc2R1dWtpaWlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2Njc3MjcsImV4cCI6MjA5MTI0MzcyN30._yRZZZ3mwKIcLVmHLjo17DmafgFjH_-m0LyT3UxxQoI';
-const N8N_CHAT = 'https://jeff104-20104.mikrus.cloud/webhook/rag/chat';
-const N8N_UP   = 'https://jeff104-20104.mikrus.cloud/webhook/rag/upload';
+const N8N_CHAT = 'https://jeff104-20104.mikrus.cloud/webhook/chat';
+const N8N_UP   = 'https://jeff104-20104.mikrus.cloud/webhook/upload_data';
 
 const ALLOWED_TYPES = ['application/pdf', 'text/plain'];
 const ALLOWED_EXTS  = ['.pdf', '.txt'];
 
 const sb = window.supabase.createClient(S_URL, S_KEY);
+
+// ─── MODULE STATE ────────────────────────────────────────────
+// FIX: Store user once after login instead of calling getUser() in every function.
+// FIX: isSending flag prevents overlapping chat requests.
+let currentUser  = null;
+let isSending    = false;
 
 // ─── HELPERS ─────────────────────────────────────────────────
 
@@ -560,71 +568,93 @@ async function handleLogin() {
     const { error } = await sb.auth.signInWithPassword({ email, password });
 
     if (error) {
-        setAuthStatus('Błąd: ' + error.message);
+        // FIX: Don't forward raw error.message — it can leak internal Supabase details.
+        setAuthStatus('Nieprawidłowy email lub hasło.');
         btn.disabled    = false;
         btn.textContent = 'Zaloguj się';
-    } else {
-        checkUser();
     }
+    // No else needed: onAuthStateChange below handles the SIGNED_IN event.
 }
 
 async function handleLogout() {
     await sb.auth.signOut();
+    // onAuthStateChange will handle the SIGNED_OUT event and reload.
     window.location.reload();
 }
 
-async function checkUser() {
-    const { data: { user } } = await sb.auth.getUser();
-    if (user) {
-        document.getElementById('auth-section').classList.add('hidden');
-        document.getElementById('app-section').classList.remove('hidden');
+// FIX: Use onAuthStateChange instead of a one-shot checkUser().
+// This handles login, token refresh, and expiry automatically.
+sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' && session?.user) {
+        currentUser = session.user;
+        onUserReady(currentUser);
+    } else if (event === 'SIGNED_OUT') {
+        currentUser = null;
+    }
+});
 
-        const email = user.email || '';
-        document.getElementById('user-email').textContent = email;
-        document.getElementById('user-avatar').textContent =
-            email.charAt(0).toUpperCase();
+/** Called once we have a confirmed, live session. */
+function onUserReady(user) {
+    document.getElementById('auth-section').classList.add('hidden');
+    document.getElementById('app-section').classList.remove('hidden');
 
-        loadUserDocuments(user.id);
+    const email = user.email || '';
+    document.getElementById('user-email').textContent = email;
+    document.getElementById('user-avatar').textContent =
+        email.charAt(0).toUpperCase();
 
-        if (document.getElementById('chat-box').children.length === 0) {
-            addMessage('Witaj! Twoje dokumenty są gotowe do analizy. Zadaj pytanie.', 'ai');
-        }
+    loadUserDocuments(user.id);
+
+    if (document.getElementById('chat-box').children.length === 0) {
+        addMessage('Witaj! Twoje dokumenty są gotowe do analizy. Zadaj pytanie.', 'ai');
     }
 }
 
 // ─── DOKUMENTY ───────────────────────────────────────────────
 
 /**
- * POPRAWKA: n8n zapisuje user_id i file_name wewnątrz kolumny JSONB `metadata`,
- * nie jako samodzielne kolumny. Używamy .filter() z PostgREST JSON path.
+ * n8n zapisuje user_id i file_name wewnątrz kolumny JSONB `metadata`.
+ * Używamy .filter() z PostgREST JSON path.
  */
 async function loadUserDocuments(userId) {
     const container = document.getElementById('file-list-container');
-    container.innerHTML = '<p class="file-empty">Ładowanie…</p>';
+
+    // FIX: Use textContent-safe DOM construction instead of innerHTML with dynamic data.
+    container.innerHTML = '';
+    const loading = document.createElement('p');
+    loading.className = 'file-empty';
+    loading.textContent = 'Ładowanie…';
+    container.appendChild(loading);
 
     const { data, error } = await sb
         .from('documents')
         .select('metadata')
         .filter('metadata->>user_id', 'eq', userId);
 
+    container.innerHTML = '';
+
     if (error) {
-        container.innerHTML = `<p class="file-empty" style="color:var(--danger);">Błąd bazy: ${error.message}</p>`;
+        const errEl = document.createElement('p');
+        errEl.className = 'file-empty';
+        errEl.style.color = 'var(--danger)';
+        // FIX: Use textContent to avoid XSS from error.message.
+        errEl.textContent = 'Błąd bazy: ' + error.message;
+        container.appendChild(errEl);
         return;
     }
 
     // Pobieramy file_name z JSONB i deduplikujemy
-    const names = data
-        .map(row => row.metadata?.file_name)
-        .filter(Boolean);
-
+    const names  = data.map(row => row.metadata?.file_name).filter(Boolean);
     const unique = [...new Set(names)];
 
     if (unique.length === 0) {
-        container.innerHTML = '<p class="file-empty">Baza wiedzy jest pusta.</p>';
+        const empty = document.createElement('p');
+        empty.className = 'file-empty';
+        empty.textContent = 'Baza wiedzy jest pusta.';
+        container.appendChild(empty);
         return;
     }
 
-    container.innerHTML = '';
     unique.forEach(name => {
         const item = document.createElement('div');
         item.className = 'file-item';
@@ -661,27 +691,24 @@ async function uploadFile() {
         return;
     }
 
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) { setUploadStatus('Brak sesji.', 'error'); return; }
+    // FIX: Use cached currentUser instead of re-fetching.
+    if (!currentUser) { setUploadStatus('Brak sesji.', 'error'); return; }
 
     btn.disabled = true;
     setUploadStatus('⏳ Wysyłanie i indeksowanie…', 'info');
 
     const formData = new FormData();
     formData.append('data', file);
-    formData.append('userId', user.id);
+    formData.append('userId', currentUser.id);
     formData.append('fileName', file.name);
 
     try {
         const res = await fetch(N8N_UP, { method: 'POST', body: formData });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-        // POPRAWKA: Usunięto błędny insert z frontendu do tabeli wektorów.
-        // n8n sam zapisuje embeddingi (z metadata) – nie robimy duplikatów.
-
         setUploadStatus('✅ Wgrano i zaindeksowano!', 'success');
         fileInput.value = '';
-        loadUserDocuments(user.id);
+        loadUserDocuments(currentUser.id);
 
         setTimeout(() => setUploadStatus('Obsługiwane formaty: PDF, TXT'), 4000);
     } catch (err) {
@@ -694,17 +721,20 @@ async function uploadFile() {
 // ─── CHAT ────────────────────────────────────────────────────
 
 async function sendMessage() {
-    const input  = document.getElementById('chat-input');
+    const input   = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
-    const text   = input.value.trim();
-    if (!text) return;
+    const text    = input.value.trim();
 
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) return;
+    // FIX: Guard against overlapping requests with isSending flag.
+    if (!text || isSending) return;
 
+    // FIX: Use cached currentUser instead of re-fetching.
+    if (!currentUser) return;
+
+    isSending = true;
     addMessage(text, 'user');
-    input.value   = '';
-    input.disabled  = true;
+    input.value      = '';
+    input.disabled   = true;
     sendBtn.disabled = true;
     sendBtn.textContent = '…';
 
@@ -714,11 +744,11 @@ async function sendMessage() {
         const res = await fetch(N8N_CHAT, {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ chatInput: text, userId: user.id })
+            body:    JSON.stringify({ chatInput: text, userId: currentUser.id })
         });
 
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
+        const json  = await res.json();
         const reply = json.output || json.text || 'Brak odpowiedzi od AI.';
 
         hideTyping();
@@ -727,6 +757,7 @@ async function sendMessage() {
         hideTyping();
         addMessage(`Błąd połączenia z serwerem. (${err.message})`, 'ai');
     } finally {
+        isSending        = false;
         input.disabled   = false;
         sendBtn.disabled = false;
         sendBtn.textContent = 'Zapytaj';
@@ -741,18 +772,14 @@ document.getElementById('logout-btn').addEventListener('click', handleLogout);
 document.getElementById('upload-btn').addEventListener('click', uploadFile);
 document.getElementById('send-btn').addEventListener('click', sendMessage);
 
-// Enter w polu hasła → logowanie  (POPRAWKA)
-document.getElementById('password').addEventListener('keypress', e => {
+// FIX: keypress is deprecated — use keydown instead.
+document.getElementById('password').addEventListener('keydown', e => {
     if (e.key === 'Enter') handleLogin();
 });
 
-// Enter w czacie → wyślij
-document.getElementById('chat-input').addEventListener('keypress', e => {
+document.getElementById('chat-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') sendMessage();
 });
-
-// ─── INIT ─────────────────────────────────────────────────────
-checkUser();
 </script>
 </body>
 </html>
