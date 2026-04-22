@@ -25,6 +25,7 @@
         }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+	@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
         body, html {
             height: 100%;
@@ -427,8 +428,10 @@
                 Wgraj dokument
             </button>
             <div id="upload-status">Dozwolone: PDF, TXT, DOCX, XLSX, PPTX</div>
+            <div id="polling-indicator" class="hidden" style="font-size: 11px; color: var(--accent); margin-top: 5px; display: flex; align-items: center; gap: 5px;">
+                <span style="animation: spin 2s linear infinite;">↻</span> Automatyczne sprawdzanie bazy...
+            </div>
         </div>
-
         <div class="documents-section">
             <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
                 Baza dokumentów
@@ -681,6 +684,36 @@ function startAutoRefresh(fileName) {
 }
 
 // ─── UPLOAD ──────────────────────────────────────────────────
+let pollingTimer = null;
+
+/** Uruchamia automatyczne sprawdzanie bazy co 30 sekund przez max 5 minut */
+function startAutoRefresh() {
+    if (pollingTimer) return; // Już działa
+    
+    document.getElementById('polling-indicator').classList.remove('hidden');
+    console.log("Uruchomiono auto-odświeżanie...");
+    
+    let attempts = 0;
+    pollingTimer = setInterval(async () => {
+        attempts++;
+        await loadUserDocuments(currentUser.id);
+        
+        // Wyłącz po 10 próbach (5 minutach) lub jeśli chcesz inną logikę zatrzymania
+        if (attempts >= 10) {
+            stopAutoRefresh();
+            setUploadStatus('Zakończono auto-sprawdzanie. Jeśli pliku nie ma, odśwież ręcznie.', 'info');
+        }
+    }, 30000); // Sprawdzaj co 30 sekund
+}
+
+function stopAutoRefresh() {
+    if (pollingTimer) {
+        clearInterval(pollingTimer);
+        pollingTimer = null;
+        document.getElementById('polling-indicator').classList.add('hidden');
+    }
+}
+
 async function uploadFile() {
     const fileInput = document.getElementById('file-input');
     const file      = fileInput.files[0];
@@ -691,16 +724,8 @@ async function uploadFile() {
         return;
     }
 
-    const ext = '.' + file.name.split('.').pop().toLowerCase();
-    if (!ALLOWED_TYPES.includes(file.type) && !ALLOWED_EXTS.includes(ext)) {
-        setUploadStatus('Dozwolone tylko pliki PDF, TXT, DOCX, XLSX, PPTX.', 'error');
-        return;
-    }
-
-    if (!currentUser) { setUploadStatus('Brak sesji.', 'error'); return; }
-
     btn.disabled = true;
-    setUploadStatus('⏳ Przesyłanie do AI...', 'info');
+    setUploadStatus('⏳ Wysyłanie dokumentu...', 'info');
 
     const formData = new FormData();
     formData.append('data', file);
@@ -710,23 +735,17 @@ async function uploadFile() {
     try {
         const res = await fetch(N8N_UP, { method: 'POST', body: formData });
         
-        if (!res.ok) {
-            if (res.status === 524) throw new Error("TIMEOUT_524");
-            throw new Error(`HTTP ${res.status}`);
-        }
+        if (!res.ok && res.status !== 524) throw new Error(`HTTP ${res.status}`);
 
-        setUploadStatus('⚙️ Plik w analizie. Sprawdzam bazę...', 'info');
-        startAutoRefresh(file.name);
+        // Sukces lub Timeout (który traktujemy jako "przyjęte do n8n")
+        setUploadStatus('🚀 Plik przyjęty! Analiza może potrwać 2-5 min.', 'success');
         fileInput.value = '';
         
+        // Aktywujemy automatyczne sprawdzanie
+        startAutoRefresh();
+
     } catch (err) {
-        if (err.message === "TIMEOUT_524") {
-            setUploadStatus('⚙️ Trwa głęboka analiza Vision AI. Sprawdzam bazę...', 'info');
-            startAutoRefresh(file.name);
-            fileInput.value = '';
-        } else {
-            setUploadStatus(`❌ Błąd połączenia: ${err.message}`, 'error');
-        }
+        setUploadStatus(`❌ Błąd: ${err.message}`, 'error');
     } finally {
         btn.disabled = false;
     }
