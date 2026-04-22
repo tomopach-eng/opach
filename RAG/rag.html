@@ -420,18 +420,20 @@
         </div>
 
         <!-- Upload -->
-        <div class="upload-section">
+<div class="upload-section">
             <div class="section-title">+ Nowa wiedza</div>
             <input type="file" id="file-input" accept=".pdf,.txt,.docx,.xlsx,.pptx">
             <button id="upload-btn" class="btn btn-ghost" style="margin-top:10px;">
                 Wgraj dokument
             </button>
-            <div id="upload-status">Obsługiwane formaty: PDF, TXT</div>
+            <div id="upload-status">Dozwolone: PDF, TXT, DOCX, XLSX, PPTX</div>
         </div>
 
-        <!-- Dokumenty -->
         <div class="documents-section">
-            <div class="section-title">Baza dokumentów</div>
+            <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
+                Baza dokumentów
+                <span id="refresh-docs-btn" style="cursor:pointer; font-size:14px; color:var(--accent);" title="Odśwież listę">↻</span>
+            </div>
             <div id="file-list-container">
                 <p class="file-empty">Ładowanie…</p>
             </div>
@@ -626,13 +628,20 @@ async function loadUserDocuments(userId) {
         return;
     }
 
-    unique.forEach(name => {
+unique.forEach(name => {
         const item = document.createElement('div');
         item.className = 'file-item';
 
         const icon = document.createElement('span');
         icon.className = 'file-item-icon';
-        icon.textContent = name.endsWith('.pdf') ? '📄' : '📝';
+        
+        // Różne ikony w zależności od formatu
+        const lowName = name.toLowerCase();
+        if (lowName.endsWith('.pdf')) icon.textContent = '📄';
+        else if (lowName.endsWith('.docx')) icon.textContent = '📘';
+        else if (lowName.endsWith('.xlsx')) icon.textContent = '📗';
+        else if (lowName.endsWith('.pptx')) icon.textContent = '📙';
+        else icon.textContent = '📝';
 
         const label = document.createElement('span');
         label.textContent = name;
@@ -670,27 +679,30 @@ async function uploadFile() {
     formData.append('userId', currentUser.id);
     formData.append('fileName', file.name);
 
-    try {
+try {
         const res = await fetch(N8N_UP, { method: 'POST', body: formData });
         
-        // Przechwytujemy 524 od Cloudflare
         if (!res.ok) {
             if (res.status === 524) throw new Error("TIMEOUT_524");
             throw new Error(`HTTP ${res.status}`);
         }
 
-        setUploadStatus('✅ Wgrano i zaindeksowano!', 'success');
+        // ZMIANA: Mówimy prawdę o czasie oczekiwania
+        setUploadStatus('✅ Plik przyjęty! Przetwarzanie w tle...', 'success');
         fileInput.value = '';
-        loadUserDocuments(currentUser.id);
-        setTimeout(() => setUploadStatus('Obsługiwane formaty: PDF, TXT'), 4000);
+        
+        // Prosimy użytkownika o ręczne odświeżenie za chwilę
+        setTimeout(() => setUploadStatus('Użyj przycisku ↻ za kilka minut'), 4000);
+        setTimeout(() => setUploadStatus('Dozwolone: PDF, TXT, DOCX, XLSX, PPTX'), 10000);
         
     } catch (err) {
         if (err.message === "TIMEOUT_524") {
-            setUploadStatus('⏳ Plik jest duży i przetwarza się w tle. Będzie dostępny za chwilę!', 'info');
+            setUploadStatus('⏳ Plik jest duży i przetwarza się w tle!', 'info');
             fileInput.value = '';
-            setTimeout(() => loadUserDocuments(currentUser.id), 15000);
+            setTimeout(() => setUploadStatus('Użyj przycisku ↻ za kilka minut'), 4000);
+            setTimeout(() => setUploadStatus('Dozwolone: PDF, TXT, DOCX, XLSX, PPTX'), 10000);
         } else {
-            setUploadStatus(`❌ Błąd połączenia: ${err.message}`, 'error');
+            setUploadStatus(`❌ Błąd: ${err.message}`, 'error');
         }
     } finally {
         btn.disabled = false;
@@ -753,6 +765,13 @@ document.getElementById('login-btn').addEventListener('click', handleLogin);
 document.getElementById('logout-btn').addEventListener('click', handleLogout);
 document.getElementById('upload-btn').addEventListener('click', uploadFile);
 document.getElementById('send-btn').addEventListener('click', sendMessage);
+document.getElementById('refresh-docs-btn').addEventListener('click', () => {
+    if (currentUser) {
+        const container = document.getElementById('file-list-container');
+        container.innerHTML = '<p class="file-empty">Odświeżanie...</p>';
+        loadUserDocuments(currentUser.id);
+    }
+});
 
 document.getElementById('password').addEventListener('keydown', e => {
     if (e.key === 'Enter') handleLogin();
