@@ -423,9 +423,9 @@ const ALLOWED_EXTS  = ['.pdf', '.txt', '.docx', '.xlsx', '.pptx'];
 
 const sb = window.supabase.createClient(S_URL, S_KEY);
 
-let currentUser  = null;
-let isSending    = false;
-let pollingTimer = null;
+var currentUser  = null;
+var isSending    = false;
+var pollingTimer = null;
 
 // ─── HELPERS ─────────────────────────────────────────────────
 function setUploadStatus(text, type = 'idle') {
