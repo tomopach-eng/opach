@@ -457,36 +457,26 @@
 
 <script>
 // ─── KONFIGURACJA ────────────────────────────────────────────
-// FIX: Move these to environment variables or a backend proxy in production.
-// The Supabase anon key is intentionally public, but webhook URLs are sensitive.
 const S_URL    = 'https://sgoogjybtirsduukiiiq.supabase.co';
 const S_KEY    = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnb29nanlidGlyc2R1dWtpaWlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2Njc3MjcsImV4cCI6MjA5MTI0MzcyN30._yRZZZ3mwKIcLVmHLjo17DmafgFjH_-m0LyT3UxxQoI';
-const N8N_CHAT = 'https://n8n.tomopach.workers.dev/webhook/chat';
-const N8N_UP   = 'https://n8n.tomopach.workers.dev/webhook/upload_data';
+const N8N_CHAT = 'https://jeff104-20104.mikrus.cloud/webhook/chat';
+const N8N_UP   = 'https://jeff104-20104.mikrus.cloud/webhook/upload_data';
 
 const ALLOWED_TYPES = [
     'application/pdf', 
     'text/plain',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // DOCX
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // XLSX
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation' // PPTX
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation'
 ];
 const ALLOWED_EXTS  = ['.pdf', '.txt', '.docx', '.xlsx', '.pptx'];
 
 const sb = window.supabase.createClient(S_URL, S_KEY);
 
-// ─── MODULE STATE ────────────────────────────────────────────
-// FIX: Store user once after login instead of calling getUser() in every function.
-// FIX: isSending flag prevents overlapping chat requests.
 let currentUser  = null;
 let isSending    = false;
 
 // ─── HELPERS ─────────────────────────────────────────────────
-
-/**
- * Ustawia tekst statusu przy uploaderze.
- * type: 'idle' | 'error' | 'success' | 'info'
- */
 function setUploadStatus(text, type = 'idle') {
     const el = document.getElementById('upload-status');
     el.textContent = text;
@@ -497,28 +487,22 @@ function setUploadStatus(text, type = 'idle') {
         'var(--text-muted)';
 }
 
-/** Pokazuje/chowa komunikat w sekcji logowania */
 function setAuthStatus(text, type = 'error') {
     const el = document.getElementById('auth-status');
     el.textContent  = text;
     el.className    = `msg-box ${type}`;
 }
 
-/** Tworzy węzeł wiadomości w czacie (bez innerHTML) */
 function addMessage(text, side) {
     const chatBox = document.getElementById('chat-box');
-
     const wrap   = document.createElement('div');
     wrap.className = `msg-wrap ${side}`;
-
     const label  = document.createElement('div');
     label.className = 'msg-label';
     label.textContent = side === 'user' ? 'Ty' : 'Asystent RAG';
-
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble';
-    bubble.textContent = text;   // textContent – brak XSS
-
+    bubble.textContent = text;
     wrap.appendChild(label);
     wrap.appendChild(bubble);
     chatBox.appendChild(wrap);
@@ -526,25 +510,20 @@ function addMessage(text, side) {
     return wrap;
 }
 
-/** Animowany wskaźnik pisania */
 function showTyping() {
     const chatBox = document.getElementById('chat-box');
-
     const wrap   = document.createElement('div');
     wrap.className = 'msg-wrap ai';
     wrap.id = 'typing-indicator';
-
     const label  = document.createElement('div');
     label.className = 'msg-label';
     label.textContent = 'Asystent RAG';
-
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble typing-indicator';
     bubble.innerHTML =
         '<div class="typing-dot"></div>' +
         '<div class="typing-dot"></div>' +
         '<div class="typing-dot"></div>';
-
     wrap.appendChild(label);
     wrap.appendChild(bubble);
     chatBox.appendChild(wrap);
@@ -557,7 +536,6 @@ function hideTyping() {
 }
 
 // ─── AUTH ────────────────────────────────────────────────────
-
 async function handleLogin() {
     const email    = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
@@ -574,23 +552,19 @@ async function handleLogin() {
     const { error } = await sb.auth.signInWithPassword({ email, password });
 
     if (error) {
-        // Wyświetlamy prawdziwy powód błędu na ekranie i w konsoli
+        // Prawdziwy błąd z serwera ląduje tu
         console.error("Błąd Supabase:", error.message);
         setAuthStatus(`Błąd: ${error.message}`); 
         btn.disabled    = false;
         btn.textContent = 'Zaloguj się';
     }
-    // No else needed: onAuthStateChange below handles the SIGNED_IN event.
 }
 
 async function handleLogout() {
     await sb.auth.signOut();
-    // onAuthStateChange will handle the SIGNED_OUT event and reload.
     window.location.reload();
 }
 
-// FIX: Use onAuthStateChange instead of a one-shot checkUser().
-// This handles login, token refresh, and expiry automatically.
 sb.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_IN' && session?.user) {
         currentUser = session.user;
@@ -600,7 +574,6 @@ sb.auth.onAuthStateChange((event, session) => {
     }
 });
 
-/** Called once we have a confirmed, live session. */
 function onUserReady(user) {
     document.getElementById('auth-section').classList.add('hidden');
     document.getElementById('app-section').classList.remove('hidden');
@@ -613,20 +586,13 @@ function onUserReady(user) {
     loadUserDocuments(user.id);
 
     if (document.getElementById('chat-box').children.length === 0) {
-        addMessage('Cześć! Twoje dokumenty są gotowe do analizy. Zadaj dowolne pytanie.', 'ai');
+        addMessage('Witaj! Twoje dokumenty są gotowe do analizy. Zadaj pytanie.', 'ai');
     }
 }
 
 // ─── DOKUMENTY ───────────────────────────────────────────────
-
-/**
- * n8n zapisuje user_id i file_name wewnątrz kolumny JSONB `metadata`.
- * Używamy .filter() z PostgREST JSON path.
- */
 async function loadUserDocuments(userId) {
     const container = document.getElementById('file-list-container');
-
-    // FIX: Use textContent-safe DOM construction instead of innerHTML with dynamic data.
     container.innerHTML = '';
     const loading = document.createElement('p');
     loading.className = 'file-empty';
@@ -644,13 +610,11 @@ async function loadUserDocuments(userId) {
         const errEl = document.createElement('p');
         errEl.className = 'file-empty';
         errEl.style.color = 'var(--danger)';
-        // FIX: Use textContent to avoid XSS from error.message.
         errEl.textContent = 'Błąd bazy: ' + error.message;
         container.appendChild(errEl);
         return;
     }
 
-    // Pobieramy file_name z JSONB i deduplikujemy
     const names  = data.map(row => row.metadata?.file_name).filter(Boolean);
     const unique = [...new Set(names)];
 
@@ -680,7 +644,6 @@ async function loadUserDocuments(userId) {
 }
 
 // ─── UPLOAD ──────────────────────────────────────────────────
-
 async function uploadFile() {
     const fileInput = document.getElementById('file-input');
     const file      = fileInput.files[0];
@@ -691,14 +654,12 @@ async function uploadFile() {
         return;
     }
 
-    // Walidacja po stronie klienta
     const ext = '.' + file.name.split('.').pop().toLowerCase();
     if (!ALLOWED_TYPES.includes(file.type) && !ALLOWED_EXTS.includes(ext)) {
         setUploadStatus('Dozwolone tylko pliki PDF i TXT.', 'error');
         return;
     }
 
-    // FIX: Use cached currentUser instead of re-fetching.
     if (!currentUser) { setUploadStatus('Brak sesji.', 'error'); return; }
 
     btn.disabled = true;
@@ -709,10 +670,10 @@ async function uploadFile() {
     formData.append('userId', currentUser.id);
     formData.append('fileName', file.name);
 
-try {
+    try {
         const res = await fetch(N8N_UP, { method: 'POST', body: formData });
         
-        // Przechwytujemy specjalnie błąd 524 od Cloudflare
+        // Przechwytujemy 524 od Cloudflare
         if (!res.ok) {
             if (res.status === 524) throw new Error("TIMEOUT_524");
             throw new Error(`HTTP ${res.status}`);
@@ -725,11 +686,8 @@ try {
         
     } catch (err) {
         if (err.message === "TIMEOUT_524") {
-            // Cloudflare ucięło połączenie, ale n8n pracuje dalej!
             setUploadStatus('⏳ Plik jest duży i przetwarza się w tle. Będzie dostępny za chwilę!', 'info');
             fileInput.value = '';
-            
-            // Opcjonalnie: odśwież listę dokumentów automatycznie za 15 sekund
             setTimeout(() => loadUserDocuments(currentUser.id), 15000);
         } else {
             setUploadStatus(`❌ Błąd połączenia: ${err.message}`, 'error');
@@ -737,18 +695,15 @@ try {
     } finally {
         btn.disabled = false;
     }
+}
 
 // ─── CHAT ────────────────────────────────────────────────────
-
 async function sendMessage() {
     const input   = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
     const text    = input.value.trim();
 
-    // FIX: Guard against overlapping requests with isSending flag.
     if (!text || isSending) return;
-
-    // FIX: Use cached currentUser instead of re-fetching.
     if (!currentUser) return;
 
     isSending = true;
@@ -768,18 +723,19 @@ async function sendMessage() {
         });
 
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-const json = await res.json();
-let reply = 'Brak odpowiedzi od AI.';
+        const json  = await res.json();
+        
+        let reply = 'Brak odpowiedzi od AI.';
+        
+        // n8n w trybie allIncomingItems zwraca tablicę
+        if (Array.isArray(json) && json.length > 0) {
+            reply = json[0].output || json[0].text || reply;
+        } else if (json && !Array.isArray(json)) {
+            reply = json.output || json.text || reply;
+        }
 
-// n8n w trybie "allIncomingItems" zwraca tablicę, np. [{ "output": "..." }]
-if (Array.isArray(json) && json.length > 0) {
-    reply = json[0].output || json[0].text || reply;
-} else if (json && !Array.isArray(json)) {
-    reply = json.output || json.text || reply;
-}
-
-hideTyping();
-addMessage(reply, 'ai');
+        hideTyping();
+        addMessage(reply, 'ai');
     } catch (err) {
         hideTyping();
         addMessage(`Błąd połączenia z serwerem. (${err.message})`, 'ai');
@@ -793,13 +749,11 @@ addMessage(reply, 'ai');
 }
 
 // ─── EVENT LISTENERS ─────────────────────────────────────────
-
 document.getElementById('login-btn').addEventListener('click', handleLogin);
 document.getElementById('logout-btn').addEventListener('click', handleLogout);
 document.getElementById('upload-btn').addEventListener('click', uploadFile);
 document.getElementById('send-btn').addEventListener('click', sendMessage);
 
-// FIX: keypress is deprecated — use keydown instead.
 document.getElementById('password').addEventListener('keydown', e => {
     if (e.key === 'Enter') handleLogin();
 });
