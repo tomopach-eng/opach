@@ -477,6 +477,7 @@ const sb = window.supabase.createClient(S_URL, S_KEY);
 
 let currentUser  = null;
 let isSending    = false;
+let pollingTimer = null; // Zmienna dla auto-odświeżania
 
 // ─── HELPERS ─────────────────────────────────────────────────
 function setUploadStatus(text, type = 'idle') {
@@ -522,10 +523,7 @@ function showTyping() {
     label.textContent = 'Asystent RAG';
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble typing-indicator';
-    bubble.innerHTML =
-        '<div class="typing-dot"></div>' +
-        '<div class="typing-dot"></div>' +
-        '<div class="typing-dot"></div>';
+    bubble.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
     wrap.appendChild(label);
     wrap.appendChild(bubble);
     chatBox.appendChild(wrap);
@@ -554,7 +552,6 @@ async function handleLogin() {
     const { error } = await sb.auth.signInWithPassword({ email, password });
 
     if (error) {
-        // Prawdziwy błąd z serwera ląduje tu
         console.error("Błąd Supabase:", error.message);
         setAuthStatus(`Błąd: ${error.message}`); 
         btn.disabled    = false;
@@ -582,8 +579,7 @@ function onUserReady(user) {
 
     const email = user.email || '';
     document.getElementById('user-email').textContent = email;
-    document.getElementById('user-avatar').textContent =
-        email.charAt(0).toUpperCase();
+    document.getElementById('user-avatar').textContent = email.charAt(0).toUpperCase();
 
     loadUserDocuments(user.id);
 
@@ -592,50 +588,56 @@ function onUserReady(user) {
     }
 }
 
-// ─── DOKUMENTY ───────────────────────────────────────────────
-async function loadUserDocuments(userId) {
+// ─── DOKUMENTY (Z AUTO-ODŚWIEŻANIEM) ─────────────────────────
+async function loadUserDocuments(userId, isPolling = false) {
     const container = document.getElementById('file-list-container');
-    container.innerHTML = '';
-    const loading = document.createElement('p');
-    loading.className = 'file-empty';
-    loading.textContent = 'Ładowanie…';
-    container.appendChild(loading);
-
-    const { data, error } = await sb
-        .from('documents')
-        .select('metadata')
-        .filter('metadata->>user_id', 'eq', userId);
-
-    container.innerHTML = '';
-
-    if (error) {
-        const errEl = document.createElement('p');
-        errEl.className = 'file-empty';
-        errEl.style.color = 'var(--danger)';
-        errEl.textContent = 'Błąd bazy: ' + error.message;
-        container.appendChild(errEl);
-        return;
+    
+    if (!isPolling) {
+        container.innerHTML = '';
+        const loading = document.createElement('p');
+        loading.className = 'file-empty';
+        loading.textContent = 'Ładowanie…';
+        container.appendChild(loading);
     }
 
-    const names  = data.map(row => row.metadata?.file_name).filter(Boolean);
+    // ZMIANA: Szukamy bezpośrednio w kolumnach file_name i user_id!
+    const { data, error } = await sb
+        .from('documents')
+        .select('file_name')
+        .eq('user_id', userId);
+
+    if (error) {
+        if (!isPolling) {
+            container.innerHTML = '';
+            const errEl = document.createElement('p');
+            errEl.className = 'file-empty';
+            errEl.style.color = 'var(--danger)';
+            errEl.textContent = 'Błąd bazy: ' + error.message;
+            container.appendChild(errEl);
+        }
+        return false;
+    }
+
+    // Pobieramy bezpośrednio z file_name
+    const names  = data.map(row => row.file_name).filter(Boolean);
     const unique = [...new Set(names)];
+
+    container.innerHTML = '';
 
     if (unique.length === 0) {
         const empty = document.createElement('p');
         empty.className = 'file-empty';
         empty.textContent = 'Baza wiedzy jest pusta.';
         container.appendChild(empty);
-        return;
+        return false;
     }
 
-unique.forEach(name => {
+    unique.forEach(name => {
         const item = document.createElement('div');
         item.className = 'file-item';
 
         const icon = document.createElement('span');
         icon.className = 'file-item-icon';
-        
-        // Różne ikony w zależności od formatu
         const lowName = name.toLowerCase();
         if (lowName.endsWith('.pdf')) icon.textContent = '📄';
         else if (lowName.endsWith('.docx')) icon.textContent = '📘';
@@ -650,6 +652,32 @@ unique.forEach(name => {
         item.appendChild(label);
         container.appendChild(item);
     });
+
+    return true; // Sukces
+}
+
+// Funkcja odpowiedzialna za sprawdzanie bazy po uploadzie
+function startAutoRefresh(fileName) {
+    if (pollingTimer) clearInterval(pollingTimer);
+    
+    let attempts = 0;
+    // Sprawdzaj co 15 sekund (maksymalnie 20 razy = 5 minut)
+    pollingTimer = setInterval(async () => {
+        attempts++;
+        await loadUserDocuments(currentUser.id, true);
+        
+        // Odśwież widok i sprawdź, czy plik już jest w bazie
+        const currentFiles = Array.from(document.querySelectorAll('.file-item span:last-child')).map(el => el.textContent);
+        
+        if (currentFiles.includes(fileName)) {
+            clearInterval(pollingTimer);
+            setUploadStatus('✅ Plik gotowy do użycia!', 'success');
+            setTimeout(() => setUploadStatus('Dozwolone: PDF, TXT, DOCX, XLSX, PPTX'), 5000);
+        } else if (attempts >= 20) {
+            clearInterval(pollingTimer);
+            setUploadStatus('⏳ Przetwarzanie wciąż trwa. Odśwież listę ręcznie.', 'info');
+        }
+    }, 15000);
 }
 
 // ─── UPLOAD ──────────────────────────────────────────────────
@@ -659,27 +687,27 @@ async function uploadFile() {
     const btn       = document.getElementById('upload-btn');
 
     if (!file) {
-        setUploadStatus('Najpierw wybierz plik.', 'error');
+        setUploadStatus('Wybierz plik.', 'error');
         return;
     }
 
     const ext = '.' + file.name.split('.').pop().toLowerCase();
     if (!ALLOWED_TYPES.includes(file.type) && !ALLOWED_EXTS.includes(ext)) {
-        setUploadStatus('Dozwolone tylko pliki PDF i TXT.', 'error');
+        setUploadStatus('Dozwolone tylko pliki PDF, TXT, DOCX, XLSX, PPTX.', 'error');
         return;
     }
 
     if (!currentUser) { setUploadStatus('Brak sesji.', 'error'); return; }
 
     btn.disabled = true;
-    setUploadStatus('⏳ Wysyłanie i indeksowanie…', 'info');
+    setUploadStatus('⏳ Przesyłanie do AI...', 'info');
 
     const formData = new FormData();
     formData.append('data', file);
     formData.append('userId', currentUser.id);
     formData.append('fileName', file.name);
 
-try {
+    try {
         const res = await fetch(N8N_UP, { method: 'POST', body: formData });
         
         if (!res.ok) {
@@ -687,22 +715,17 @@ try {
             throw new Error(`HTTP ${res.status}`);
         }
 
-        // ZMIANA: Mówimy prawdę o czasie oczekiwania
-        setUploadStatus('✅ Plik przyjęty! Przetwarzanie w tle...', 'success');
+        setUploadStatus('⚙️ Plik w analizie. Sprawdzam bazę...', 'info');
+        startAutoRefresh(file.name);
         fileInput.value = '';
-        
-        // Prosimy użytkownika o ręczne odświeżenie za chwilę
-        setTimeout(() => setUploadStatus('Użyj przycisku ↻ za kilka minut'), 4000);
-        setTimeout(() => setUploadStatus('Dozwolone: PDF, TXT, DOCX, XLSX, PPTX'), 10000);
         
     } catch (err) {
         if (err.message === "TIMEOUT_524") {
-            setUploadStatus('⏳ Plik jest duży i przetwarza się w tle!', 'info');
+            setUploadStatus('⚙️ Trwa głęboka analiza Vision AI. Sprawdzam bazę...', 'info');
+            startAutoRefresh(file.name);
             fileInput.value = '';
-            setTimeout(() => setUploadStatus('Użyj przycisku ↻ za kilka minut'), 4000);
-            setTimeout(() => setUploadStatus('Dozwolone: PDF, TXT, DOCX, XLSX, PPTX'), 10000);
         } else {
-            setUploadStatus(`❌ Błąd: ${err.message}`, 'error');
+            setUploadStatus(`❌ Błąd połączenia: ${err.message}`, 'error');
         }
     } finally {
         btn.disabled = false;
@@ -739,7 +762,6 @@ async function sendMessage() {
         
         let reply = 'Brak odpowiedzi od AI.';
         
-        // n8n w trybie allIncomingItems zwraca tablicę
         if (Array.isArray(json) && json.length > 0) {
             reply = json[0].output || json[0].text || reply;
         } else if (json && !Array.isArray(json)) {
@@ -765,13 +787,13 @@ document.getElementById('login-btn').addEventListener('click', handleLogin);
 document.getElementById('logout-btn').addEventListener('click', handleLogout);
 document.getElementById('upload-btn').addEventListener('click', uploadFile);
 document.getElementById('send-btn').addEventListener('click', sendMessage);
-document.getElementById('refresh-docs-btn').addEventListener('click', () => {
-    if (currentUser) {
-        const container = document.getElementById('file-list-container');
-        container.innerHTML = '<p class="file-empty">Odświeżanie...</p>';
-        loadUserDocuments(currentUser.id);
-    }
-});
+
+// Podpięcie przycisku ręcznego odświeżania z HTML-a
+if(document.getElementById('refresh-docs-btn')) {
+    document.getElementById('refresh-docs-btn').addEventListener('click', () => {
+        if (currentUser) loadUserDocuments(currentUser.id);
+    });
+}
 
 document.getElementById('password').addEventListener('keydown', e => {
     if (e.key === 'Enter') handleLogin();
