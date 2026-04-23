@@ -732,4 +732,15 @@ document.getElementById('upload-btn').addEventListener('click', uploadFile);
 document.getElementById('send-btn').addEventListener('click', sendMessage);
 
 if(document.getElementById('refresh-docs-btn')) {
-    document.getElementById('refresh-docs-btn').addEventListener('click', () =>
+    document.getElementById('refresh-docs-btn').addEventListener('click', () =>        loadUserDocuments(currentUser.id));
+}
+
+document.getElementById('chat-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+});
+</script>
+</body>
+</html>
